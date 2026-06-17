@@ -11,7 +11,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 VALID_PROVIDERS = {"fake", "openai-compatible", "ollama"}
-DEFAULT_TIMEOUT = 60
+# Local models (especially larger ones on a cold start) can take ~1 min for the first response,
+# so the default is generous; override with AGENTDESK_LOCAL_TIMEOUT.
+DEFAULT_TIMEOUT = 120
 
 
 @dataclass
