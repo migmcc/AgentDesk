@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Advanced quality gate (Phase 6): `agentdesk gate` now runs six deterministic check groups
+  (scope, state/dependencies, risk, diff/Git, prompt, test, handover) and emits structured
+  `[PASS]/[WARN]/[FAIL]/[REVIEW]` lines plus failures, warnings, human-review reasons, and a
+  recommended action.
+- `agentdesk test-result <project> <task> --result <passed|failed|not-run|unknown>` to record a
+  test result (Agent Desk never runs tests).
+- `docs/advanced-quality-gate.md`.
+
+### Changed
+- `GateResult` now stores structured checks and a recommended action.
+- Git detection now requires the project folder to be its own repository root (avoids analyzing a
+  parent repo when a project is nested inside one).
+
 ## v0.3.0 - Local Model Advisory Assistance
 
 ### Added
