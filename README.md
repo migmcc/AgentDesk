@@ -150,4 +150,4 @@ docs/                  # vision, roadmap, architecture, decisions, mvp-demo, rel
 
 ## License
 
-MIT (provisional — see [docs/decisions.md](docs/decisions.md)).
+MIT — see [LICENSE](LICENSE).

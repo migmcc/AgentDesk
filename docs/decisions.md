@@ -44,5 +44,5 @@ that need not function yet: `branch_name`, `base_branch`, `commit_hash`, `change
 ## D4 — Standalone repo outside SkillLab
 Location: `D:\Trabalho\agent-desk`. SkillLab is only for incubation/validation/planning.
 
-## D5 — License (provisional)
-MIT, pending the open strategic question on open-sourcing. Change before any public release if needed.
+## D5 — License: MIT
+MIT is the project's definitive license (confirmed at the v0.1.0 release). See `LICENSE`.
