@@ -55,10 +55,14 @@ execution, advanced quality gate, and UI are explicitly deferred.
 - **Proof:** a second task targeting a locked file is blocked; a dependent only becomes `ready` when
   all its dependencies are `done`; invalid transitions are refused.
 
-## Run E — Acceptance
-- `agentdesk handover TASK-xxx` → handover.md
-- `agentdesk gate TASK-xxx` → PASS / PASS_WITH_WARNINGS / FAIL / NEEDS_HUMAN_REVIEW
-- End-to-end demo + full test suite
+## Run E — Acceptance ✅ (MVP complete)
+- `agentdesk handover <project> <task> [--summary "..."]` → `handovers/TASK-XXX.md` + persisted;
+  deterministic ("Not recorded automatically in MVP." for diff/test data)
+- `agentdesk gate <project> <task>` → PASS / PASS_WITH_WARNINGS / FAIL / NEEDS_HUMAN_REVIEW
+  (deterministic rules over handover / dependencies / locks / criteria / risk)
+- `agentdesk done` warns (does not block) when a handover or gate result is missing
+- End-to-end demo documented in `docs/mvp-demo.md`; all 13 MVP acceptance criteria covered
+- **Proof:** full `new → plan → route → prompt → start → handover → gate → done → unlock` flow.
 - **Proof:** all 13 MVP acceptance criteria pass.
 
 ## Deferred (post-MVP)

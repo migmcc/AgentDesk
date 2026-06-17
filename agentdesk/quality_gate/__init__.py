@@ -1,5 +1,9 @@
 """Quality gate — evaluate whether a task's work can be accepted.
 
-Placeholder for Run E. Will produce a GateResult (PASS / PASS_WITH_WARNINGS / FAIL /
-NEEDS_HUMAN_REVIEW). The GateResult schema already lives in `agentdesk.models`.
+Run E. Deterministic: produces a GateResult (PASS / PASS_WITH_WARNINGS / FAIL /
+NEEDS_HUMAN_REVIEW) from observable task/handover/lock/dependency data. No Git, diffs, or LLM.
 """
+
+from agentdesk.quality_gate.gate import run_gate
+
+__all__ = ["run_gate"]

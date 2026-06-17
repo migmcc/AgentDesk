@@ -1,0 +1,41 @@
+# Handover {{ task.id }}
+
+## Task
+{{ task.id }} - {{ task.name }}
+
+## Status
+{{ task.state.value }}
+
+## Model
+{{ model_label }}
+
+## Summary
+{{ handover.summary }}
+
+## What changed
+- Not recorded automatically in MVP.
+
+## Files in scope
+{% for f in task.allowed_files %}- {{ f }}
+{% else %}- Not recorded automatically in MVP.
+{% endfor %}
+
+## Acceptance criteria
+{% for c in task.acceptance_criteria %}- {{ c }}
+{% else %}- None defined.
+{% endfor %}
+
+## Tests run
+- Not recorded automatically in MVP.
+
+## Decisions made
+- Not recorded automatically in MVP.
+
+## Problems found
+- None recorded.
+
+## Remaining risks
+- Risk level: {{ task.risk.value }}.
+
+## Next recommended task
+- {{ handover.next_recommended_task or "None" }}
