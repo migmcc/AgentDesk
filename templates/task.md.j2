@@ -1,0 +1,34 @@
+# {{ task.id }} — {{ task.name }}
+
+- **Type:** {{ task.task_type.value }}
+- **Risk:** {{ task.risk.value }}
+- **Recommended model:** {{ task.recommended_model.value if task.recommended_model else "—" }}
+- **State:** {{ task.state.value }}
+
+## Objective
+{{ task.objective }}
+
+## Context
+{{ task.context }}
+
+## Allowed Files
+{% for f in task.allowed_files %}- {{ f }}
+{% endfor %}
+
+## Forbidden Files
+{% for f in task.forbidden_files %}- {{ f }}
+{% endfor %}
+
+## Dependencies
+{% for d in task.dependencies %}- {{ d }}
+{% endfor %}
+
+## Acceptance Criteria
+{% for c in task.acceptance_criteria %}- {{ c }}
+{% endfor %}
+
+## Test Command
+{{ task.test_command | default("—") }}
+
+## Definition of Done
+{{ task.definition_of_done | default("—") }}

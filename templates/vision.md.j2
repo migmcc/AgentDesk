@@ -1,0 +1,30 @@
+# Vision — {{ project.name }}
+
+## Problem
+{{ problem | default("...") }}
+
+## Target Audience
+{{ audience | default("...") }}
+
+## Proposed Solution
+{{ solution | default("...") }}
+
+## Product Value
+{{ value | default("...") }}
+
+## MVP
+{{ mvp | default("...") }}
+
+## Project Limits
+{{ limits | default("...") }}
+
+## Success Criteria
+{% for c in success_criteria | default([]) %}- {{ c }}
+{% endfor %}
+
+## Main Risks
+{% for r in risks | default([]) %}- {{ r }}
+{% endfor %}
+
+## Recommended Decision
+{{ decision | default("advance | pause | reframe") }}

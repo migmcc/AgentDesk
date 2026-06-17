@@ -1,0 +1,29 @@
+# Architecture — {{ project.name }}
+
+## Suggested Stack
+{% for item in stack | default([]) %}- {{ item }}
+{% endfor %}
+
+## Folder Structure
+```text
+{{ folder_structure | default("...") }}
+```
+
+## Main Modules
+{% for item in modules | default([]) %}- {{ item }}
+{% endfor %}
+
+## Data Flow
+{{ data_flow | default("...") }}
+
+## Technical Decisions
+{% for item in decisions | default([]) %}- {{ item }}
+{% endfor %}
+
+## Technical Risks
+{% for item in tech_risks | default([]) %}- {{ item }}
+{% endfor %}
+
+## Alternatives Considered
+{% for item in alternatives | default([]) %}- {{ item }}
+{% endfor %}

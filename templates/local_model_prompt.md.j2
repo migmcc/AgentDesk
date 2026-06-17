@@ -1,0 +1,16 @@
+# Local Model Task
+
+Analyze the following project context.
+
+## Goal
+{{ task.objective }}
+
+## Input files
+{% for f in task.allowed_files %}- {{ f }}
+{% endfor %}
+
+## Expected output
+{{ expected_output | default("...") }}
+
+## Restrictions
+Do not suggest large architecture changes unless there is a clear inconsistency.

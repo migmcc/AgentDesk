@@ -1,0 +1,24 @@
+# Scope — {{ project.name }}
+
+## In the MVP
+{% for item in in_scope | default([]) %}- {{ item }}
+{% endfor %}
+
+## Out of Scope
+{% for item in out_scope | default([]) %}- {{ item }}
+{% endfor %}
+
+## Future Features
+{% for item in future | default([]) %}- {{ item }}
+{% endfor %}
+
+## Technical Constraints
+{% for item in tech_constraints | default([]) %}- {{ item }}
+{% endfor %}
+
+## Time Constraints
+{{ time_constraints | default("...") }}
+
+## External Dependencies
+{% for item in dependencies | default([]) %}- {{ item }}
+{% endfor %}

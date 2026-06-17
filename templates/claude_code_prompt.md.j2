@@ -1,0 +1,24 @@
+# Mission
+
+You are working on {{ task.id }}.
+
+## Project context
+{{ project_context | default(task.context) }}
+
+## Objective
+{{ task.objective }}
+
+## Technical constraints
+{% for f in task.forbidden_files %}- Do not touch: {{ f }}
+{% endfor %}
+
+## Expected output
+{{ expected_output | default("...") }}
+
+## Do not
+- modify files outside the allowed set
+- make architecture changes beyond this task's scope
+
+## Acceptance criteria
+{% for c in task.acceptance_criteria %}- {{ c }}
+{% endfor %}
