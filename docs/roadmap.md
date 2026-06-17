@@ -14,10 +14,19 @@ execution, advanced quality gate, and UI are explicitly deferred.
 - Initial tests
 - **Proof:** a project initializes and state persists across a restart.
 
-## Run B — Planning slice
-- `agentdesk plan` / `agentdesk tasks`: idea → vision/scope/architecture docs → ≥10 structured tasks
-- `agentdesk show TASK-xxx`
-- **Proof:** idea → docs + ≥10 tasks generated.
+## Run B — Planning slice ✅
+- `agentdesk plan <project>`: idea → vision/scope/architecture/risks/success-criteria docs →
+  12 structured, routed tasks (deterministic blueprint; no LLM calls)
+- Tasks persisted to SQLite; docs + `tasks/TASK-XXX.md` written to disk
+- States set from dependencies: no deps → `ready`, has deps → `blocked`
+- Idempotent (`--force` to regenerate)
+- **Dependency manager** (`agentdesk/dependency_manager/`): task-to-task dependency logic across
+  models — graph validation (unknown deps / self-deps / cycles), eligibility, topological order,
+  and `recompute_states()` that moves tasks `blocked` ⇄ `ready` as dependencies reach `done`.
+  Tasks may declare `depends_on:` (alias of `dependencies`).
+- **Proof:** idea → 5 docs + 12 tasks generated; repeatable without corruption.
+- Wired into the CLI in a later run: calling `recompute_states` on task-state changes (the engine
+  is ready; the `done`/`start` commands that trigger it land in Run D).
 
 ## Run C — Routing & prompts
 - `agentdesk route TASK-xxx` (wire the router into the CLI; record decisions)

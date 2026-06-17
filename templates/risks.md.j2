@@ -1,0 +1,17 @@
+# Risks — {{ project.name }}
+
+## Product Risks
+{% for r in product_risks | default([]) %}- {{ r }}
+{% endfor %}
+
+## Technical Risks
+{% for r in technical_risks | default([]) %}- {{ r }}
+{% endfor %}
+
+## Operational Risks
+{% for r in operational_risks | default([]) %}- {{ r }}
+{% endfor %}
+
+## Mitigations
+{% for m in mitigations | default([]) %}- {{ m }}
+{% endfor %}

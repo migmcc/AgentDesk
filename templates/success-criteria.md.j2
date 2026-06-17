@@ -1,0 +1,11 @@
+# Success Criteria — {{ project.name }}
+
+## Definition of Success
+{{ definition | default("The project is successful when the MVP goal below is met.") }}
+
+## MVP Goal
+{{ mvp_goal | default(project.objective or project.idea) }}
+
+## Acceptance Criteria
+{% for c in criteria | default([]) %}- {{ c }}
+{% endfor %}
