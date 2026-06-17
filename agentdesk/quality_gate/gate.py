@@ -10,6 +10,7 @@ from pathlib import Path
 
 from agentdesk.conflict_guard import check_start
 from agentdesk.dependency_manager import done_ids
+from agentdesk.git_integration import gate_findings as git_gate_findings
 from agentdesk.handover import PLACEHOLDER_SUMMARY
 from agentdesk.models import (
     GateOutcome,
@@ -40,16 +41,20 @@ def run_gate(store: Storage, project: Project, task: Task) -> GateResult:
     routing = store.get_routing(project.id, task.id) or route(task)
     effective = routing.effective_model
 
+    # Git-derived findings (warning if no repo; FAIL on forbidden change / missing branch).
+    git_checks, git_failures, git_warnings = git_gate_findings(project.root_path, task)
+
     checks = {
         "Handover": "found" if handover else "missing",
         "Dependencies": "satisfied" if not pending_deps else "not satisfied",
         "Acceptance criteria": "found" if task.acceptance_criteria else "missing",
         "File conflicts": "none" if not conflicts else "detected",
         "Risk": task.risk.value,
+        **git_checks,
     }
 
     # ---- FAIL conditions (hard blockers) ----
-    failures: list[str] = []
+    failures: list[str] = list(git_failures)
     if handover is None:
         failures.append("Handover not found.")
     if task.state is TaskState.BLOCKED:
@@ -90,7 +95,7 @@ def run_gate(store: Storage, project: Project, task: Task) -> GateResult:
         )
 
     # ---- Minor warnings (downgrade PASS -> PASS_WITH_WARNINGS) ----
-    downgrade: list[str] = []
+    downgrade: list[str] = list(git_warnings)
     if not task.allowed_files:
         downgrade.append("Task has no allowed files defined.")
     if task.risk is RiskLevel.MEDIUM:
