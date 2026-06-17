@@ -22,16 +22,18 @@ from rich.table import Table
 
 from agentdesk import __version__
 from agentdesk import dependency_manager as dm
+from agentdesk.conflict_guard import ConflictDecision, check_start
 from agentdesk.config import db_path, home_dir
-from agentdesk.models import Model, Project, RiskLevel, Task, TaskState
+from agentdesk.models import FileLock, Model, Project, RiskLevel, Task, TaskState
 from agentdesk.planner import PlanError, plan_project
 from agentdesk.prompt_generator import generate_prompt, prompt_relpath
 from agentdesk.router import DEFAULT_OVERRIDE_REASON, parse_model, route
 from agentdesk.scaffold import create_project_folder, slugify
-from agentdesk.storage import Storage
+from agentdesk.state_machine import InvalidTransition, apply_transition
+from agentdesk.storage import FileLockConflict, Storage
 
 app = typer.Typer(
-    help="Agent Desk — coordinate work across Codex, Claude Code, and local models (local-first).",
+    help="Agent Desk - coordinate work across Codex, Claude Code, and local models (local-first).",
     no_args_is_help=True,
     add_completion=False,
 )
@@ -60,7 +62,13 @@ def _blocking_dependencies(store: Storage, project_id: str, task: Task) -> list[
 
 
 def _model_label(model: Optional[Model]) -> str:
-    return model.value if model else "—"
+    return model.value if model else "-"
+
+
+def _effective_model(store: Storage, project_id: str, task: Task) -> Optional[Model]:
+    """The model that would actually run a task (persisted routing, honoring overrides)."""
+    decision = store.get_routing(project_id, task.id) or route(task)
+    return decision.effective_model
 
 
 @app.command()
@@ -151,7 +159,7 @@ def plan(
         f"{len(tasks)} tasks ({ready} ready, {blocked} blocked)"
     )
 
-    table = Table(title=f"Tasks — {project.name}")
+    table = Table(title=f"Tasks - {project.name}")
     table.add_column("ID", style="bold")
     table.add_column("Title")
     table.add_column("Type")
@@ -165,9 +173,9 @@ def plan(
             t.name,
             t.task_type.value,
             t.risk.value,
-            t.recommended_model.value if t.recommended_model else "—",
+            t.recommended_model.value if t.recommended_model else "-",
             t.state.value,
-            ", ".join(t.dependencies) or "—",
+            ", ".join(t.dependencies) or "-",
         )
     console.print(table)
     console.print(f"Docs + task files written under: {project.root_path}")
@@ -236,7 +244,7 @@ def route_command(
 
         if override is None:
             store.save_routing(proj.id, decision)  # ensure persisted
-            console.print(f"[bold]{task.id}[/bold] — {task.name}\n")
+            console.print(f"[bold]{task.id}[/bold] - {task.name}\n")
             console.print(f"Recommended model: {_model_label(decision.recommended_model)}")
             console.print(f"Alternative model: {_model_label(decision.alternative_model)}")
             console.print(f"Risk: {decision.risk.value}")
@@ -337,6 +345,236 @@ def prompt_command(
     console.print("Prompt generated:")
     console.print(prompt_relpath(effective, task.id))
     console.print(f"[dim]({path})[/dim]")
+
+
+@app.command("status")
+def status_command(project: str = typer.Argument(..., help="Project id or name.")) -> None:
+    """Show a project summary: state counts, in-progress tasks, locks, and next ready tasks."""
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        tasks = store.list_tasks(proj.id)
+        locks = store.locks_for_project(proj.id)
+        done = dm.done_ids(tasks)
+        routing = {t.id: _effective_model(store, proj.id, t) for t in tasks}
+
+    console.print(f"Project: {proj.name}\n")
+
+    console.print("Tasks:")
+    for state in TaskState:
+        count = sum(1 for t in tasks if t.state is state)
+        console.print(f"- {state.value}: {count}")
+
+    doing = [t for t in tasks if t.state is TaskState.DOING]
+    if doing:
+        console.print("\nIn progress:")
+        for t in doing:
+            console.print(f"- {t.id} - {t.name}")
+
+    console.print("\nActive locks:")
+    if locks:
+        for lock in locks:
+            console.print(f"- {lock.task_id} -> {lock.file_path}")
+    else:
+        console.print("- (none)")
+
+    ready = [t for t in tasks if t.state is TaskState.READY]
+    console.print("\nNext recommended tasks:")
+    if ready:
+        for t in ready:
+            console.print(f"- {t.id} - {t.name} [{_model_label(routing[t.id])}]")
+    else:
+        console.print("- (none ready)")
+
+    blocked = [t for t in tasks if t.state is TaskState.BLOCKED]
+    if blocked:
+        console.print("\nBlocked tasks:")
+        for t in blocked:
+            pending = [d for d in t.dependencies if d not in done]
+            console.print(f"- {t.id} - {t.name} (waiting on: {', '.join(pending) or '-'})")
+
+
+@app.command("start")
+def start_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id, e.g. TASK-003."),
+) -> None:
+    """Start a task: check dependencies + file conflicts, lock files, move to `doing`."""
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        task = store.get_task(proj.id, task_id)
+        if task is None:
+            console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
+            raise typer.Exit(code=1)
+
+        # 1. Dependency manager: is the task ordered to run?
+        if task.state is TaskState.BLOCKED:
+            done = dm.done_ids(store.list_tasks(proj.id))
+            console.print(f"Cannot start {task.id}.\n")
+            console.print("Status: blocked\n")
+            console.print("Blocked by:")
+            for dep in task.dependencies:
+                if dep not in done:
+                    console.print(f"- {dep} - not done")
+            console.print("\nRun these tasks first.")
+            raise typer.Exit(code=1)
+
+        if task.state is not TaskState.READY:
+            console.print(
+                f"[red]Cannot start {task.id}: it is '{task.state.value}', not 'ready'.[/red]"
+            )
+            raise typer.Exit(code=1)
+
+        # 2. Conflict guard: are the files free?
+        result = check_start(store, proj.id, task)
+        if result.decision is ConflictDecision.BLOCK:
+            console.print(f"Cannot start {task.id}.\n")
+            console.print("File conflict detected:")
+            for path, holder in result.conflicts:
+                console.print(f"- {path} locked by {holder}")
+            for reason in result.reasons:
+                if not result.conflicts:
+                    console.print(f"- {reason}")
+            console.print("\nFinish or reject the blocking task first.")
+            raise typer.Exit(code=1)
+        if result.decision is ConflictDecision.WARN:
+            console.print(f"[yellow]Warning:[/yellow] {' '.join(result.reasons)}\n")
+
+        # 3. Both passed: lock files, move to doing.
+        locked: list[str] = []
+        try:
+            for path in task.allowed_files:
+                store.add_lock(FileLock(project_id=proj.id, task_id=task.id, file_path=path))
+                locked.append(path)
+        except FileLockConflict as exc:
+            console.print(f"[red]Cannot start {task.id}: {exc}[/red]")
+            raise typer.Exit(code=1)
+
+        apply_transition(task, TaskState.DOING)
+        store.update_task(task)
+
+        model = _effective_model(store, proj.id, task)
+        rel = prompt_relpath(model, task.id) if model else None
+        prompt_exists = bool(rel) and (Path(proj.root_path) / rel).exists()
+
+    console.print(f"{task.id} started.\n")
+    console.print(f"Model: {_model_label(model)}")
+    console.print("Status: doing\n")
+    console.print("Files locked:")
+    if locked:
+        for path in locked:
+            console.print(f"- {path}")
+    else:
+        console.print("- (none)")
+    console.print("")
+    if prompt_exists:
+        console.print(f"Prompt:\n{rel}")
+    else:
+        console.print("Prompt not found.\nRun:")
+        console.print(f'agentdesk prompt "{project}" {task.id}')
+
+
+def _terminal_command(project: str, task_id: str, target: TaskState) -> None:
+    """Shared logic for done / review / reject."""
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        task = store.get_task(proj.id, task_id)
+        if task is None:
+            console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
+            raise typer.Exit(code=1)
+
+        try:
+            apply_transition(task, target)
+        except InvalidTransition as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1)
+        store.update_task(task)
+
+        released = [lk.file_path for lk in store.locks_for_project(proj.id) if lk.task_id == task.id]
+
+        if target is TaskState.REVIEW:
+            # Keep locks; do not unblock dependents.
+            console.print(f"{task.id} moved to review.\n")
+            console.print("Locks kept active (task may still need fixes).")
+            return
+
+        # done / rejected both release locks.
+        store.release_task_locks(proj.id, task.id)
+
+        if target is TaskState.REJECTED:
+            console.print(f"{task.id} rejected.\n")
+            console.print("Released locks:")
+            for path in released:
+                console.print(f"- {path}")
+            if not released:
+                console.print("- (none)")
+            dependents = [
+                t for t in store.list_tasks(proj.id)
+                if task.id in t.dependencies and t.state is TaskState.BLOCKED
+            ]
+            console.print("\nDependents remain blocked:")
+            for t in dependents:
+                console.print(f"- {t.id} - {t.name}")
+            if not dependents:
+                console.print("- (none)")
+            return
+
+        # target is DONE: recompute dependencies and report newly ready tasks.
+        tasks = store.list_tasks(proj.id)
+        before_ready = {t.id for t in tasks if t.state is TaskState.READY}
+        changed = dm.recompute_states(tasks)
+        for t in changed:
+            store.update_task(t)
+        newly_ready = [t for t in tasks if t.state is TaskState.READY and t.id not in before_ready]
+
+        console.print(f"{task.id} marked as done.\n")
+        console.print("Released locks:")
+        for path in released:
+            console.print(f"- {path}")
+        if not released:
+            console.print("- (none)")
+        console.print("")
+        if newly_ready:
+            console.print("Newly ready tasks:")
+            for t in newly_ready:
+                console.print(f"- {t.id} - {t.name}")
+        else:
+            console.print("No newly ready tasks.")
+
+
+@app.command("done")
+def done_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id."),
+) -> None:
+    """Mark a task done (from doing/review): release locks and recompute dependencies."""
+    _terminal_command(project, task_id, TaskState.DONE)
+
+
+@app.command("review")
+def review_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id."),
+) -> None:
+    """Move a task from doing to review (keeps locks; does not unblock dependents)."""
+    _terminal_command(project, task_id, TaskState.REVIEW)
+
+
+@app.command("reject")
+def reject_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id."),
+) -> None:
+    """Reject a task (from doing/review): release locks; does not unblock dependents."""
+    _terminal_command(project, task_id, TaskState.REJECTED)
 
 
 if __name__ == "__main__":

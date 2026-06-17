@@ -9,18 +9,22 @@
 
 ## Status
 
-**v0.1 — Run C (Routing & prompts).** Foundation + planning, plus the operational layer that turns
-tasks into copy-paste-ready missions: query/override model routing and generate per-model prompts.
-Conflict guard, handover, and quality gate land in later runs (see `docs/roadmap.md`).
+**v0.1 — Run D (Coordination).** Foundation + planning + routing/prompts, plus the coordination
+layer: start tasks (with dependency + file-conflict checks), track state, lock files, and complete
+tasks (releasing locks and unblocking dependents). Handover and quality gate land next
+(see `docs/roadmap.md`).
 
 What works today:
 
-- `agentdesk new "<idea>"` — create a project (folder scaffold + `agentdesk.json` + persisted state)
-- `agentdesk plan <project-id>` — generate base docs + ≥10 routed tasks with dependencies/states
-- `agentdesk route <project> <task> [--override <model>]` — show or override a task's model routing
-- `agentdesk prompt <project> <task> [--model <model>]` — write a model-specific prompt file
-- `agentdesk projects` — list projects (proves state persists across restarts)
-- `agentdesk show <project-id>` — show project details
+- `agentdesk new "<idea>"` - create a project (folder scaffold + `agentdesk.json` + persisted state)
+- `agentdesk plan <project-id>` - generate base docs + >=10 routed tasks with dependencies/states
+- `agentdesk route <project> <task> [--override <model>]` - show or override a task's model routing
+- `agentdesk prompt <project> <task> [--model <model>]` - write a model-specific prompt file
+- `agentdesk status <project>` - state counts, in-progress, active locks, next ready, blocked tasks
+- `agentdesk start <project> <task>` - check deps + conflicts, lock files, move to `doing`
+- `agentdesk done|review|reject <project> <task>` - complete / send to review / reject a task
+- `agentdesk projects` - list projects (proves state persists across restarts)
+- `agentdesk show <project-id>` - show project details
 - `agentdesk version`
 
 ## Key decisions (MVP)
@@ -67,11 +71,13 @@ agentdesk/
   router/              # fixed routing rules + risk model
   planner/             # idea -> docs -> tasks
   dependency_manager/  # task-to-task dependency logic (validate, eligibility, recompute states)
-  conflict_guard/      # per-file locking + rule table    (later run)
-  prompt_generator/    # per-model prompts                (later run)
+  conflict_guard/      # file-collision checks (allow / warn / block)
+  state_machine/       # allowed task state transitions + validation
+  prompt_generator/    # per-model prompts
   handover/            # handover.md generation           (later run)
   quality_gate/        # PASS/WARN/FAIL/NEEDS_HUMAN_REVIEW (later run)
   cli/                 # Typer CLI
+  templating.py        # shared Jinja2 environment
 templates/             # Jinja2 templates (docs + prompts + handover)
 examples/              # sample project
 tests/                 # pytest suite

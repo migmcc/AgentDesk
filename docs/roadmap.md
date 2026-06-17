@@ -39,10 +39,21 @@ execution, advanced quality gate, and UI are explicitly deferred.
 - Blocked tasks warn on the CLI and get a "Dependency warning" section in the prompt
 - **Proof:** every task routed with a reason; per-model prompts generated; overrides persisted.
 
-## Run D — Coordination
-- `agentdesk lock` / `start`: per-file reservation + conflict rule table (allow / warn / block)
-- State transitions wired into the CLI
-- **Proof:** a second task targeting the same file is blocked; states move correctly.
+## Run D — Coordination ✅
+- `agentdesk status <project>`: state counts, in-progress tasks, active locks, next ready tasks,
+  blocked tasks with their pending dependencies
+- `agentdesk start <project> <task>`: checks dependencies (must be `ready`) **and** file conflicts,
+  locks the task's allowed files, moves to `doing`
+- `agentdesk done <project> <task>`: from `doing`/`review` → `done`, releases locks, runs
+  `recompute_states`, reports newly-ready tasks
+- `agentdesk review <project> <task>`: `doing` → `review`, **keeps** locks, does not unblock dependents
+- `agentdesk reject <project> <task>`: → `rejected`, releases locks, does not unblock dependents
+- **state_machine** module: explicit allowed transitions; invalid ones are refused with a clear error
+- **conflict_guard** module: allow / warn / block based on SQLite file locks (controls *collisions*;
+  the dependency manager controls *order*)
+- Windows-safe CLI output (ASCII only; no cp1252-incompatible glyphs)
+- **Proof:** a second task targeting a locked file is blocked; a dependent only becomes `ready` when
+  all its dependencies are `done`; invalid transitions are refused.
 
 ## Run E — Acceptance
 - `agentdesk handover TASK-xxx` → handover.md
