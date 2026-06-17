@@ -69,6 +69,11 @@ agentdesk handover <project> <task> [--summary S]   # generate + persist a hando
 agentdesk gate <project> <task>                     # PASS / PASS_WITH_WARNINGS / FAIL / NEEDS_HUMAN_REVIEW
 agentdesk done <project> <task>                      # complete: release locks, unblock dependents
 agentdesk reject <project> <task>                   # reject: release locks (no unblock)
+
+# Local Git integration (optional; see docs/git-integration.md)
+agentdesk git-status <project>                      # repo / branch / clean / changed files
+agentdesk branch <project> <task>                   # create+checkout agent/TASK-XXX-<slug>
+agentdesk diff <project> <task>                     # changed files + allowed/forbidden scope check
 ```
 
 `<project>` accepts the project id (slug) **or** its name. `M` (model) is one of `codex`,
@@ -108,7 +113,9 @@ pytest
 
 - **No model execution** — prompts are copy-paste; Agent Desk never calls Codex, Claude Code, or a
   local model.
-- **No active Git integration** — the Task schema is Git-ready, but branch/diff handling is Phase 4.
+- **Git integration is local-only** — branch-per-task, change detection, and scope checks work
+  locally (see `docs/git-integration.md`). No remotes, push, PRs, or auto-commits. Projects without
+  Git remain fully supported.
 - Handover and gate are **deterministic**: anything needing diffs/test runs is written as
   "Not recorded automatically in MVP.".
 - `NEEDS_HUMAN_REVIEW` is reported but does not technically block `done`; `done` only *warns* when a
@@ -117,7 +124,8 @@ pytest
 
 ## Roadmap (post-MVP)
 
-- **Phase 4 — Git**: branch-per-task, file-change detection, forbidden-file diff check, diff summary.
+- **Phase 4 — Git** ✅ (local): branch-per-task, change detection, forbidden-file diff check, diff
+  summary, gate enrichment. See `docs/git-integration.md`.
 - **Phase 5 — Local model**: real summarizer / handover / prompt-review / doc-check support tasks.
 - **Phase 6 — Advanced quality gate**: test-check, diff-check, scope-check, risk-check.
 - **Phase 7 — UI**: dashboard, task board, model-assignment view, conflict warnings, prompt viewer.
@@ -137,6 +145,7 @@ agentdesk/
   planner/             # idea -> docs -> tasks (deterministic blueprint)
   dependency_manager/  # task-to-task dependency logic (validate, eligibility, recompute states)
   conflict_guard/      # file-collision checks (allow / warn / block)
+  git_integration/     # local Git: branch-per-task, change detection, scope checks
   state_machine/       # allowed task state transitions
   prompt_generator/    # per-model prompts
   handover/            # handover.md generation

@@ -65,10 +65,14 @@ execution, advanced quality gate, and UI are explicitly deferred.
 - **Proof:** full `new → plan → route → prompt → start → handover → gate → done → unlock` flow.
 - **Proof:** all 13 MVP acceptance criteria pass.
 
+## Phase 4 — Git (local) ✅
+- `git-status`, `branch` (agent/TASK-XXX-slug, persisted), `diff` (changed files + scope check)
+- Quality gate enriched with Git findings: forbidden change → FAIL; out-of-scope / no-branch /
+  no-repo → warning. Projects without Git remain fully supported.
+- Functional Git-ready fields: `branch_name`, `changed_files`, `diff_summary`. Local only — no
+  remotes, push, PRs, or auto-commits. See `docs/git-integration.md`.
+
 ## Deferred (post-MVP)
-- **Phase 4 — Git**: branch-per-task, file-change detection, forbidden-file diff check, diff summary.
-  (The schema is already Git-ready: `branch_name`, `commit_hash`, `base_branch`, `changed_files`,
-  `pr_url`, `diff_summary`.)
 - **Phase 5 — Local model**: real summarizer / handover generator / prompt reviewer / doc checker.
 - **Phase 6 — Advanced quality gate**: test-check, diff-check, scope-check, risk-check.
 - **Phase 7 — UI**: dashboard, task board, model-assignment view, conflict warnings, prompt viewer.

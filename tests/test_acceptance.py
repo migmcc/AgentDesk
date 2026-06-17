@@ -88,16 +88,19 @@ def test_gate_detects_missing_criteria(planned):
     assert "No acceptance criteria defined." in r.output
 
 
-# 8: gate PASS when minimal conditions are satisfied
-def test_gate_pass(planned):
+# 8: gate is clean (no hard failures) when minimal conditions are satisfied.
+# Note: a non-Git project yields PASS_WITH_WARNINGS (git-not-detected is a minor warning per spec);
+# a true PASS requires a Git repo and is covered in tests/test_git_integration.py.
+def test_gate_pass_minimal_non_git(planned):
     _add_task(SLUG, id="TASK-200", name="Docs", task_type=TaskType.DOCUMENTATION,
               risk=RiskLevel.LOW, allowed_files=["docs/guide.md"], acceptance_criteria=["doc done"])
     runner.invoke(app, ["prompt", SLUG, "TASK-200"])      # prompt on disk
     runner.invoke(app, ["start", SLUG, "TASK-200"])
     runner.invoke(app, ["handover", SLUG, "TASK-200", "--summary", "wrote the guide"])
     r = _gate_output(SLUG, "TASK-200")
-    assert "Quality Gate: PASS" in r.output
-    assert "Quality Gate: PASS_WITH_WARNINGS" not in r.output
+    assert "Quality Gate: PASS_WITH_WARNINGS" in r.output
+    assert "Git repository not detected." in r.output
+    assert "FAIL" not in r.output
 
 
 # 9: gate PASS_WITH_WARNINGS for minor warnings (medium risk)
