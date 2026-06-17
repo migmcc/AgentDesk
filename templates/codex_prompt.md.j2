@@ -1,0 +1,24 @@
+# Mission
+
+Implement only {{ task.id }}.
+
+## Goal
+{{ task.objective }}
+
+## Allowed files
+{% for f in task.allowed_files %}- {{ f }}
+{% endfor %}
+
+## Forbidden files
+{% for f in task.forbidden_files %}- {{ f }}
+{% endfor %}
+
+## Acceptance criteria
+{% for c in task.acceptance_criteria %}- {{ c }}
+{% endfor %}
+
+## Before finishing
+- run tests{% if task.test_command %} (`{{ task.test_command }}`){% endif %}
+
+- update handover
+- do not modify unrelated files
