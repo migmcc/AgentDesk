@@ -26,6 +26,13 @@ from agentdesk import git_integration as git
 from agentdesk.conflict_guard import ConflictDecision, check_start
 from agentdesk.config import db_path, home_dir
 from agentdesk.handover import generate_handover
+from agentdesk.local_model import (
+    MODES as LOCAL_MODES,
+    LocalModelConfig,
+    LocalModelError,
+    get_provider,
+    run_assist,
+)
 from agentdesk.models import FileLock, GateOutcome, Model, Project, RiskLevel, Task, TaskState
 from agentdesk.planner import PlanError, plan_project
 from agentdesk.prompt_generator import generate_prompt, prompt_relpath
@@ -800,6 +807,79 @@ def diff_command(
         console.print("\nScope warnings:")
         for f in out_of_scope:
             console.print(f"- {f} is changed but not listed in allowed_files.")
+
+
+@app.command("local-status")
+def local_status_command() -> None:
+    """Show the local-model configuration (never crashes if unconfigured)."""
+    cfg = LocalModelConfig.from_env()
+    console.print("Local model configuration\n")
+    if not cfg.is_configured():
+        console.print("Local model is not configured.\n")
+        console.print("Set:")
+        console.print("AGENTDESK_LOCAL_PROVIDER")
+        console.print("AGENTDESK_LOCAL_BASE_URL")
+        console.print("AGENTDESK_LOCAL_MODEL")
+        return
+    console.print(f"Provider: {cfg.provider}")
+    if cfg.provider != "fake":
+        console.print(f"Base URL: {cfg.base_url}")
+        console.print(f"Model: {cfg.model}")
+    console.print(f"Timeout: {cfg.timeout}s")
+    console.print("Status: configured")
+
+
+@app.command("local-assist")
+def local_assist_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id."),
+    mode: str = typer.Option(..., "--mode", help=f"One of: {', '.join(LOCAL_MODES)}."),
+) -> None:
+    """Advisory local-model assistance for a task. Writes a report; never changes state or code."""
+    if mode not in LOCAL_MODES:
+        console.print(f"[red]Invalid mode '{mode}'. Valid modes: {', '.join(LOCAL_MODES)}.[/red]")
+        raise typer.Exit(code=1)
+
+    cfg = LocalModelConfig.from_env()
+    if not cfg.is_configured():
+        console.print("[red]Local model is not configured.[/red] Set: " + ", ".join(cfg.missing()))
+        raise typer.Exit(code=1)
+
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        task = store.get_task(proj.id, task_id)
+        if task is None:
+            console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
+            raise typer.Exit(code=1)
+        if not proj.root_path:
+            console.print(f"[red]Project '{proj.id}' has no root_path; run plan first.[/red]")
+            raise typer.Exit(code=1)
+
+        # Advisory-only safety notices (do not block).
+        if task.risk is RiskLevel.HIGH:
+            console.print(
+                "[yellow]Warning:[/yellow]\nThis is a high-risk task. Local model output should be "
+                "treated as advisory only.\n"
+            )
+        if task.task_type.value == "implementation":
+            console.print(
+                "Local model will only generate advisory output. It will not modify "
+                "implementation files.\n"
+            )
+
+        try:
+            provider = get_provider(cfg)
+            path = run_assist(store, proj, task, mode, provider)
+        except LocalModelError as exc:
+            console.print(f"[red]Local model error: {exc}[/red]")
+            raise typer.Exit(code=1)
+
+    console.print("Local assist report generated:")
+    console.print(f"reports/{task.id}-{mode}.md")
+    console.print(f"[dim]({path})[/dim]")
 
 
 if __name__ == "__main__":

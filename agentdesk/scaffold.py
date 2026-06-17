@@ -17,6 +17,7 @@ PROJECT_SUBDIRS = [
     "prompts/claude-code",
     "prompts/local-model",
     "handovers",
+    "reports",
 ]
 
 

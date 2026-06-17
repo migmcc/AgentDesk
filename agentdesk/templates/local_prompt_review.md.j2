@@ -1,0 +1,29 @@
+You are an advisory local model.
+Do not claim to have executed code.
+Do not invent files, tests, commits, or changes.
+Use only the context provided.
+If information is missing, say so.
+
+# Task: review the prompt for {{ task.id }}
+
+Review the prompt below before it is sent to {{ effective_model.value if effective_model else "a model" }}.
+Look for: a prompt that is too vague; missing acceptance criteria; missing allowed files; risk not
+explained; dangerous instructions; missing handover step; or that the task is blocked by dependencies.
+
+## Task profile
+- Type: {{ task.task_type.value }} | Risk: {{ task.risk.value }} | State: {{ task.state.value }}
+- Dependencies: {{ ", ".join(task.dependencies) or "none" }}
+- Allowed files: {{ ", ".join(task.allowed_files) or "none defined" }}
+- Forbidden files: {{ ", ".join(task.forbidden_files) or "none" }}
+- Acceptance criteria: {{ task.acceptance_criteria | length }} defined
+
+## Prompt under review
+{% if prompt_text %}
+```
+{{ prompt_text }}
+```
+{% else %}
+No prompt file found for this task. Recommend generating one with `agentdesk prompt`.
+{% endif %}
+
+List concrete issues and concrete suggestions. If the prompt looks adequate, say so plainly.

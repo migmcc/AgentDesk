@@ -72,7 +72,13 @@ execution, advanced quality gate, and UI are explicitly deferred.
 - Functional Git-ready fields: `branch_name`, `changed_files`, `diff_summary`. Local only — no
   remotes, push, PRs, or auto-commits. See `docs/git-integration.md`.
 
+## Phase 5 — Local model (advisory) ✅
+- `local-status` (config check) and `local-assist <project> <task> --mode <mode>` with modes
+  `summary`, `prompt-review`, `doc-check`, `handover-draft`; output to `reports/`.
+- Providers: `fake` (deterministic, for tests) and `openai-compatible` (Ollama via its `/v1`).
+- Advisory only: never changes code, task state, the official handover, or Git; output is never
+  required for a gate PASS. See `docs/local-model.md`.
+
 ## Deferred (post-MVP)
-- **Phase 5 — Local model**: real summarizer / handover generator / prompt reviewer / doc checker.
 - **Phase 6 — Advanced quality gate**: test-check, diff-check, scope-check, risk-check.
 - **Phase 7 — UI**: dashboard, task board, model-assignment view, conflict warnings, prompt viewer.
