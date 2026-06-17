@@ -54,5 +54,5 @@ diff summary), then Phases 5–7 per `docs/roadmap.md`.
 - [x] README updated (what / problem / install / commands / flow / example / limitations / roadmap).
 - [x] Release notes (this file) and MVP demo documented.
 - [x] No out-of-scope features added in v0.1.
-- [ ] Decide license (currently provisional MIT) before any public release.
-- [ ] Tag `v0.1.0` when ready to cut the release.
+- [x] License: MIT (definitive).
+- [x] Tag `v0.1.0` cut for the release.
