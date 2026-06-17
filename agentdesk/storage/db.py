@@ -26,6 +26,7 @@ from agentdesk.models import (
     Project,
     RoutingDecision,
     Task,
+    TestResult,
 )
 
 
@@ -74,6 +75,15 @@ CREATE TABLE IF NOT EXISTS handovers (
 
 -- One current quality-gate result per task (upserted).
 CREATE TABLE IF NOT EXISTS gate_results (
+    project_id  TEXT NOT NULL,
+    task_id     TEXT NOT NULL,
+    data        TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (project_id, task_id)
+);
+
+-- One current (manually recorded) test result per task.
+CREATE TABLE IF NOT EXISTS test_results (
     project_id  TEXT NOT NULL,
     task_id     TEXT NOT NULL,
     data        TEXT NOT NULL,
@@ -214,8 +224,8 @@ class Storage:
 
     # ----------------------------------------------------------------- planning
     def clear_plan(self, project_id: str) -> None:
-        """Remove a project's tasks, locks, routing, handovers, and gate results."""
-        for table in ("task_routing", "handovers", "gate_results", "locks", "tasks"):
+        """Remove a project's tasks, locks, routing, handovers, gate and test results."""
+        for table in ("task_routing", "handovers", "gate_results", "test_results", "locks", "tasks"):
             self._conn.execute(f"DELETE FROM {table} WHERE project_id = ?", (project_id,))
         self._conn.commit()
 
@@ -260,6 +270,27 @@ class Storage:
             (project_id, task_id),
         ).fetchone()
         return GateResult.model_validate_json(row["data"]) if row else None
+
+    # --------------------------------------------------------------- test results
+    def save_test_result(self, project_id: str, result: TestResult) -> TestResult:
+        """Upsert the current (manually recorded) test result for a task."""
+        result.project_id = result.project_id or project_id
+        result.updated_at = datetime.now(timezone.utc)
+        self._conn.execute(
+            "INSERT INTO test_results (project_id, task_id, data, updated_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(project_id, task_id) DO UPDATE SET "
+            "data = excluded.data, updated_at = excluded.updated_at",
+            (project_id, result.task_id, result.model_dump_json(), result.updated_at.isoformat()),
+        )
+        self._conn.commit()
+        return result
+
+    def get_test_result(self, project_id: str, task_id: str) -> Optional[TestResult]:
+        row = self._conn.execute(
+            "SELECT data FROM test_results WHERE project_id = ? AND task_id = ?",
+            (project_id, task_id),
+        ).fetchone()
+        return TestResult.model_validate_json(row["data"]) if row else None
 
     # -------------------------------------------------------- routing decisions
     def save_routing(self, project_id: str, decision: RoutingDecision) -> RoutingDecision:

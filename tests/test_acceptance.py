@@ -112,7 +112,7 @@ def test_gate_pass_with_warnings(planned):
     runner.invoke(app, ["handover", SLUG, "TASK-300", "--summary", "implemented"])
     r = _gate_output(SLUG, "TASK-300")
     assert "Quality Gate: PASS_WITH_WARNINGS" in r.output
-    assert "Task is medium risk." in r.output
+    assert "Tests not recorded." in r.output
 
 
 # 10: gate NEEDS_HUMAN_REVIEW for high-risk / architecture

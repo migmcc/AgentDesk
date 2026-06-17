@@ -89,6 +89,24 @@ class ProjectStatus(str, Enum):
     DONE = "done"
 
 
+class TestOutcome(str, Enum):
+    """Manually recorded test result for a task (Agent Desk does not run tests)."""
+
+    PASSED = "passed"
+    FAILED = "failed"
+    NOT_RUN = "not-run"
+    UNKNOWN = "unknown"
+
+
+class CheckLevel(str, Enum):
+    """Per-check status shown in the quality-gate report."""
+
+    PASS = "PASS"
+    WARN = "WARN"
+    FAIL = "FAIL"
+    REVIEW = "REVIEW"
+
+
 # --------------------------------------------------------------------------------------
 # Models
 # --------------------------------------------------------------------------------------
@@ -198,16 +216,36 @@ class Handover(BaseModel):
     updated_at: datetime = Field(default_factory=_utcnow)
 
 
+class GateCheck(BaseModel):
+    """One line in the quality-gate report: a level and a human-readable message."""
+
+    level: CheckLevel
+    message: str
+
+
 class GateResult(BaseModel):
     """Result of running the quality gate on a task."""
 
     task_id: str
     project_id: Optional[str] = None
     outcome: GateOutcome
-    checks: dict[str, str] = Field(default_factory=dict)   # label -> status text
+    checks: list[GateCheck] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     failures: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)       # for NEEDS_HUMAN_REVIEW
+    recommended_action: str = ""
+    notes: str = ""
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+
+class TestResult(BaseModel):
+    """A manually recorded test result for a task (Agent Desk never runs tests itself)."""
+
+    task_id: str
+    project_id: Optional[str] = None
+    command: Optional[str] = None
+    result: TestOutcome = TestOutcome.UNKNOWN
     notes: str = ""
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)

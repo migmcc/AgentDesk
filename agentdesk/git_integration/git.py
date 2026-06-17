@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fnmatch
 import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -25,14 +26,24 @@ def _run(root: str | Path, *args: str, check: bool = True) -> subprocess.Complet
 
 
 def is_git_repo(root: str | Path | None) -> bool:
-    """True if `root` is inside a Git work tree. Never raises (returns False on any problem)."""
+    """True if `root` is itself the root of a Git work tree.
+
+    Agent Desk treats a project folder as its own repository, so a folder merely *nested* inside a
+    larger repo is intentionally NOT treated as the project's repo (avoids analyzing a parent repo).
+    Never raises (returns False on any problem).
+    """
     if not root or not Path(root).exists():
         return False
     try:
-        proc = _run(root, "rev-parse", "--is-inside-work-tree", check=False)
+        inside = _run(root, "rev-parse", "--is-inside-work-tree", check=False)
+        if inside.returncode != 0 or inside.stdout.strip() != "true":
+            return False
+        top = _run(root, "rev-parse", "--show-toplevel", check=False)
+        if top.returncode != 0:
+            return False
+        return Path(top.stdout.strip()).resolve() == Path(root).resolve()
     except GitError:
         return False
-    return proc.returncode == 0 and proc.stdout.strip() == "true"
 
 
 def current_branch(root: str | Path) -> Optional[str]:
@@ -126,52 +137,41 @@ def analyze_scope(
     return out_of_scope, forbidden_violations
 
 
-def gate_findings(root: str | Path | None, task) -> tuple[dict[str, str], list[str], list[str]]:
-    """Git-derived checks for the quality gate: (checks, failures, warnings).
+@dataclass
+class RepoAnalysis:
+    """Structured Git facts for a task, consumed by the quality gate's diff-check."""
 
-    Defensive: a non-repo project yields a warning (not a failure); a critical git error yields a
-    failure rather than a crash.
-    """
-    checks: dict[str, str] = {}
-    failures: list[str] = []
-    warnings: list[str] = []
+    is_repo: bool
+    branch_name: Optional[str] = None
+    branch_associated: bool = False
+    branch_missing: bool = False           # branch_name set but the branch does not exist
+    changed: list[str] = field(default_factory=list)
+    out_of_scope: list[str] = field(default_factory=list)
+    forbidden: list[str] = field(default_factory=list)
+    error: Optional[str] = None            # a critical git error message, if any
 
+
+def repo_analysis(root: str | Path | None, task) -> RepoAnalysis:
+    """Inspect the repo for a task. Never raises: a non-repo or git error is reported via fields."""
     if not is_git_repo(root):
-        checks["Git repository"] = "not detected"
-        warnings.append("Git repository not detected.")
-        return checks, failures, warnings
-
-    checks["Git repository"] = "detected"
+        return RepoAnalysis(is_repo=False)
+    branch_name = getattr(task, "branch_name", None)
     try:
-        branch_name = getattr(task, "branch_name", None)
-        if branch_name:
-            if not branch_exists(root, branch_name):
-                checks["Task branch"] = "missing"
-                failures.append(
-                    f"Branch '{branch_name}' associated with {task.id} does not exist."
-                )
-                return checks, failures, warnings
-            checks["Task branch"] = branch_name
-        else:
-            checks["Task branch"] = "none"
-            warnings.append("No branch associated with the task.")
-
-        changed = filter_task_changes(changed_files(root))
-        checks["Changed files"] = str(len(changed))
+        branch_missing = bool(branch_name) and not branch_exists(root, branch_name)
+        changed: list[str] = []
+        if not branch_missing:
+            changed = filter_task_changes(changed_files(root))
         out_of_scope, forbidden_v = analyze_scope(
             changed, task.allowed_files, task.forbidden_files
         )
-        if forbidden_v:
-            checks["Forbidden files"] = "violated"
-            failures += [f"Forbidden file changed: {f}." for f in forbidden_v]
-        else:
-            checks["Forbidden files"] = "not changed"
-        if out_of_scope:
-            checks["Changed files in scope"] = "no"
-            warnings += [f"{f} changed but not listed in allowed_files." for f in out_of_scope]
-        else:
-            checks["Changed files in scope"] = "yes"
+        return RepoAnalysis(
+            is_repo=True,
+            branch_name=branch_name,
+            branch_associated=bool(branch_name),
+            branch_missing=branch_missing,
+            changed=changed,
+            out_of_scope=out_of_scope,
+            forbidden=forbidden_v,
+        )
     except GitError as exc:
-        failures.append(f"Git command failed: {exc}")
-
-    return checks, failures, warnings
+        return RepoAnalysis(is_repo=True, branch_name=branch_name, error=str(exc))

@@ -135,6 +135,7 @@ def test_gate_pass_in_clean_git_repo(git_project):
             id="TASK-002", project_id=slug, name="Write docs", task_type=TaskType.DOCUMENTATION,
             risk=RiskLevel.LOW, state=TaskState.READY, allowed_files=["docs/guide.md"],
             acceptance_criteria=["documented"],
+            objective="Write the developer guide covering install and usage.",
         ))
     runner.invoke(app, ["branch", slug, "TASK-002"])
     runner.invoke(app, ["prompt", slug, "TASK-002"])
@@ -143,8 +144,8 @@ def test_gate_pass_in_clean_git_repo(git_project):
     r = runner.invoke(app, ["gate", slug, "TASK-002"])
     assert "Quality Gate: PASS" in r.output
     assert "PASS_WITH_WARNINGS" not in r.output
-    assert "Git repository: detected" in r.output
-    assert "Forbidden files: not changed" in r.output
+    assert "[PASS] Git repository detected" in r.output
+    assert "[PASS] No forbidden files changed" in r.output
 
 
 # 12: gate warns (does not fail) when there is no Git repo
