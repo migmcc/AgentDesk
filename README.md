@@ -9,14 +9,16 @@
 
 ## Status
 
-**v0.1 — Run B (Planning slice).** Foundation (Run A) plus a deterministic planning engine: an
-idea becomes base docs and a routed, dependency-aware task list. Prompt generation, conflict guard,
-handover, and quality gate land in later runs (see `docs/roadmap.md`).
+**v0.1 — Run C (Routing & prompts).** Foundation + planning, plus the operational layer that turns
+tasks into copy-paste-ready missions: query/override model routing and generate per-model prompts.
+Conflict guard, handover, and quality gate land in later runs (see `docs/roadmap.md`).
 
 What works today:
 
 - `agentdesk new "<idea>"` — create a project (folder scaffold + `agentdesk.json` + persisted state)
 - `agentdesk plan <project-id>` — generate base docs + ≥10 routed tasks with dependencies/states
+- `agentdesk route <project> <task> [--override <model>]` — show or override a task's model routing
+- `agentdesk prompt <project> <task> [--model <model>]` — write a model-specific prompt file
 - `agentdesk projects` — list projects (proves state persists across restarts)
 - `agentdesk show <project-id>` — show project details
 - `agentdesk version`

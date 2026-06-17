@@ -1,24 +1,59 @@
 # Mission
 
-You are working on {{ task.id }}.
+You are working on {{ task.id }} — {{ task.name }}.
 
 ## Project context
 {{ project_context | default(task.context) }}
+{% if project %}
+Project: {{ project.name }}
+Idea: {{ project.idea }}
+{% if project.objective %}Objective: {{ project.objective }}{% endif %}
+{% endif %}
 
 ## Objective
 {{ task.objective }}
 
+## Task profile
+- **Type:** {{ task.task_type.value }}
+- **Risk:** {{ task.risk.value }}
+
+## Dependencies
+{% for d in task.dependencies %}- {{ d }}
+{% else %}- (none)
+{% endfor %}
+
+## Existing decisions
+See docs/decisions.md and docs/architecture.md in the project for prior decisions and constraints.
+
 ## Technical constraints
 {% for f in task.forbidden_files %}- Do not touch: {{ f }}
+{% else %}- (none specified)
+{% endfor %}
+
+## Allowed files
+{% for f in task.allowed_files %}- {{ f }}
+{% else %}- (none specified)
 {% endfor %}
 
 ## Expected output
-{{ expected_output | default("...") }}
+{{ expected_output | default("A complete, reviewed change that satisfies the acceptance criteria, plus a handover.") }}
 
 ## Do not
 - modify files outside the allowed set
 - make architecture changes beyond this task's scope
+- start related or dependent tasks
 
 ## Acceptance criteria
 {% for c in task.acceptance_criteria %}- {{ c }}
+{% else %}- (none specified)
 {% endfor %}
+{% if blocked %}
+## Dependency warning
+
+This task is currently blocked.
+Do not execute it until the following dependencies are done:
+{% for d in blocking_deps %}- {{ d }}
+{% endfor %}
+{% endif %}
+## Handover
+Explain any relevant decisions you made in the handover for {{ task.id }}.

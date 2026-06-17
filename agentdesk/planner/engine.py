@@ -7,10 +7,7 @@ operation is reproducible.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from agentdesk import dependency_manager as deps
 from agentdesk.models import Project, ProjectStatus, Task
@@ -18,6 +15,7 @@ from agentdesk.planner.blueprint import DEFAULT_BLUEPRINT, TaskSpec
 from agentdesk.router import route
 from agentdesk.scaffold import write_manifest
 from agentdesk.storage import Storage
+from agentdesk.templating import jinja_env
 
 DOC_FILES = ["vision", "scope", "architecture", "risks", "success-criteria"]
 
@@ -26,22 +24,8 @@ class PlanError(Exception):
     """Raised when planning cannot proceed (e.g. missing project root)."""
 
 
-def templates_dir() -> Path:
-    """Locate the Jinja2 templates directory (override with AGENTDESK_TEMPLATES)."""
-    override = os.environ.get("AGENTDESK_TEMPLATES")
-    if override:
-        return Path(override).expanduser()
-    return Path(__file__).resolve().parents[2] / "templates"
-
-
-def _env() -> Environment:
-    return Environment(
-        loader=FileSystemLoader(str(templates_dir())),
-        autoescape=select_autoescape(enabled_extensions=()),  # plain text/markdown, no HTML escaping
-        trim_blocks=True,
-        lstrip_blocks=True,
-        keep_trailing_newline=True,
-    )
+def _env():
+    return jinja_env()
 
 
 def task_id(index: int) -> str:
@@ -164,7 +148,7 @@ def plan_project(store: Storage, project: Project, force: bool = False) -> list[
     tasks = build_tasks(project)
     for task in tasks:
         store.add_task(task)
-        store.save_routing_decision(route(task))
+        store.save_routing(project.id, route(task))
 
     write_docs(project, root)
     write_task_files(tasks, root)
