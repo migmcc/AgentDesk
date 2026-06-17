@@ -9,14 +9,14 @@
 
 ## Status
 
-**v0.1 — Run A (Foundation).** This phase ships the engine foundation: data model, local SQLite
-storage, the task state machine, the fixed routing-rules + risk model, initial prompt/doc
-templates, a minimal CLI, and tests. Planning, prompt generation wiring, conflict guard, handover,
-and quality gate land in later runs (see `docs/roadmap.md`).
+**v0.1 — Run B (Planning slice).** Foundation (Run A) plus a deterministic planning engine: an
+idea becomes base docs and a routed, dependency-aware task list. Prompt generation, conflict guard,
+handover, and quality gate land in later runs (see `docs/roadmap.md`).
 
 What works today:
 
 - `agentdesk new "<idea>"` — create a project (folder scaffold + `agentdesk.json` + persisted state)
+- `agentdesk plan <project-id>` — generate base docs + ≥10 routed tasks with dependencies/states
 - `agentdesk projects` — list projects (proves state persists across restarts)
 - `agentdesk show <project-id>` — show project details
 - `agentdesk version`
@@ -63,7 +63,8 @@ agentdesk/
   models.py            # Pydantic schemas + enums (states, types, risk, models, gate outcomes)
   storage/             # SQLite persistence layer
   router/              # fixed routing rules + risk model
-  planner/             # idea -> docs -> tasks            (later run)
+  planner/             # idea -> docs -> tasks
+  dependency_manager/  # task-to-task dependency logic (validate, eligibility, recompute states)
   conflict_guard/      # per-file locking + rule table    (later run)
   prompt_generator/    # per-model prompts                (later run)
   handover/            # handover.md generation           (later run)

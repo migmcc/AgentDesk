@@ -28,7 +28,7 @@
 {% endfor %}
 
 ## Test Command
-{{ task.test_command | default("—") }}
+{{ task.test_command or "—" }}
 
 ## Definition of Done
-{{ task.definition_of_done | default("—") }}
+{{ task.definition_of_done or "—" }}

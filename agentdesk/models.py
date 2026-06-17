@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def _utcnow() -> datetime:
@@ -108,6 +108,10 @@ class Project(BaseModel):
 class Task(BaseModel):
     """A single unit of work, sized for one model in one session."""
 
+    # Accept both the field name and the `depends_on` alias when loading (YAML/JSON);
+    # serialization keeps the canonical `dependencies` field name.
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str  # e.g. TASK-001
     project_id: str
     name: str
@@ -118,7 +122,8 @@ class Task(BaseModel):
     risk: RiskLevel = RiskLevel.MEDIUM
     allowed_files: list[str] = Field(default_factory=list)
     forbidden_files: list[str] = Field(default_factory=list)
-    dependencies: list[str] = Field(default_factory=list)
+    # Task-to-task dependencies. A task may only start once every dependency is accepted (`done`).
+    dependencies: list[str] = Field(default_factory=list, alias="depends_on")
     acceptance_criteria: list[str] = Field(default_factory=list)
     test_command: Optional[str] = None
     definition_of_done: Optional[str] = None

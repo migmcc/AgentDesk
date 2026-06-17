@@ -1,5 +1,14 @@
-"""Planner — idea -> vision/scope/architecture docs -> structured task list.
+"""Planner — idea -> vision/scope/architecture/risks/success-criteria docs -> structured tasks.
 
-Placeholder for Run B. Will generate the base Markdown docs and >=10 structured tasks from a
-project idea using the Jinja2 templates in `templates/`.
+Run B. Deterministic and LLM-free: tasks come from a fixed blueprint, models from the fixed router.
 """
+
+from agentdesk.planner.engine import (
+    PlanError,
+    build_tasks,
+    plan_project,
+    write_docs,
+    write_task_files,
+)
+
+__all__ = ["plan_project", "build_tasks", "write_docs", "write_task_files", "PlanError"]

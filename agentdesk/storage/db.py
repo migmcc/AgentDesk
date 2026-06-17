@@ -197,6 +197,18 @@ class Storage:
         self._conn.commit()
         return cur.rowcount
 
+    # ----------------------------------------------------------------- planning
+    def clear_plan(self, project_id: str) -> None:
+        """Remove a project's tasks, locks, and routing decisions (used by `plan --force`)."""
+        self._conn.execute(
+            "DELETE FROM routing_decisions WHERE task_id IN "
+            "(SELECT id FROM tasks WHERE project_id = ?)",
+            (project_id,),
+        )
+        self._conn.execute("DELETE FROM locks WHERE project_id = ?", (project_id,))
+        self._conn.execute("DELETE FROM tasks WHERE project_id = ?", (project_id,))
+        self._conn.commit()
+
     # ----------------------------------------------------------------- handovers
     def save_handover(self, handover: Handover) -> Handover:
         self._conn.execute(
