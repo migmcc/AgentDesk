@@ -1,18 +1,31 @@
 # Changelog
 
-## Unreleased
+## v0.3.0 - Local Model Advisory Assistance
 
 ### Added
-- Local model advisory assistance (Phase 5): `local-status` and
-  `local-assist <project> <task> --mode <summary|prompt-review|doc-check|handover-draft>`,
-  writing advisory reports to `reports/`.
-- Providers: `fake` (deterministic, for tests) and `openai-compatible` (Ollama via its `/v1`),
-  configured by env vars (`AGENTDESK_LOCAL_PROVIDER/BASE_URL/MODEL/TIMEOUT`).
-- `docs/local-model.md`.
+- Local model advisory assistance.
+- `agentdesk local-status`.
+- `agentdesk local-assist`.
+- Support for summary, prompt-review, doc-check and handover-draft modes.
+- Fake local model provider for deterministic tests.
+- OpenAI-compatible local provider.
+- Ollama support through its OpenAI-compatible `/v1` endpoint.
+- Reports written to `reports/`.
+- Advisory-only safety boundaries.
+- Local model documentation.
 
-### Notes
-- The local model is advisory only: it never changes code, task state, the official handover, or
-  Git, and is never required for a quality-gate PASS.
+### Changed
+- Local model default timeout increased to 120 seconds.
+
+### Not included
+- Automatic model execution.
+- Code modification by local models.
+- Task state changes by local models.
+- Git changes by local models.
+- Local model as a required quality gate dependency.
+- Runner.
+- Watcher.
+- UI.
 
 ## v0.2.0 - Git Integration
 
