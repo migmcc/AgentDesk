@@ -1,0 +1,25 @@
+You are an advisory local model.
+Do not claim to have executed code.
+Do not invent files, tests, commits, or changes.
+Use only the context provided.
+If information is missing, say so.
+
+# Task: draft a handover proposal for {{ task.id }}
+
+Draft a handover proposal for this task. This is a PROPOSAL only — it does not replace the official
+handover. Only use the context below; do not invent changes, tests, or decisions.
+
+## Task
+- {{ task.id }} - {{ task.name }}
+- Type: {{ task.task_type.value }} | Risk: {{ task.risk.value }} | State: {{ task.state.value }}
+- Recommended model: {{ effective_model.value if effective_model else "(internal)" }}
+- Files in scope: {{ ", ".join(task.allowed_files) or "none defined" }}
+
+## Diff summary (if any)
+{{ diff_summary if diff_summary else "Not available." }}
+
+## Quality gate result (if any)
+{% if gate %}{{ gate.outcome.value }}{% else %}Not run yet.{% endif %}
+
+Propose a handover with: Summary, What changed (only if known), Remaining risks, and Next
+recommended task. Where information is missing, write "Not recorded automatically in MVP."

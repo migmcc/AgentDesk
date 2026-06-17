@@ -74,6 +74,10 @@ agentdesk reject <project> <task>                   # reject: release locks (no 
 agentdesk git-status <project>                      # repo / branch / clean / changed files
 agentdesk branch <project> <task>                   # create+checkout agent/TASK-XXX-<slug>
 agentdesk diff <project> <task>                     # changed files + allowed/forbidden scope check
+
+# Local model advisory assistance (optional; see docs/local-model.md)
+agentdesk local-status                              # show local-model configuration
+agentdesk local-assist <project> <task> --mode M    # M: summary|prompt-review|doc-check|handover-draft
 ```
 
 `<project>` accepts the project id (slug) **or** its name. `M` (model) is one of `codex`,
@@ -126,7 +130,8 @@ pytest
 
 - **Phase 4 — Git** ✅ (local): branch-per-task, change detection, forbidden-file diff check, diff
   summary, gate enrichment. See `docs/git-integration.md`.
-- **Phase 5 — Local model**: real summarizer / handover / prompt-review / doc-check support tasks.
+- **Phase 5 — Local model** ✅: advisory summarizer / prompt-review / doc-check / handover-draft.
+  See `docs/local-model.md`.
 - **Phase 6 — Advanced quality gate**: test-check, diff-check, scope-check, risk-check.
 - **Phase 7 — UI**: dashboard, task board, model-assignment view, conflict warnings, prompt viewer.
 
@@ -146,6 +151,7 @@ agentdesk/
   dependency_manager/  # task-to-task dependency logic (validate, eligibility, recompute states)
   conflict_guard/      # file-collision checks (allow / warn / block)
   git_integration/     # local Git: branch-per-task, change detection, scope checks
+  local_model/         # advisory local-model assist (config, providers, modes)
   state_machine/       # allowed task state transitions
   prompt_generator/    # per-model prompts
   handover/            # handover.md generation
