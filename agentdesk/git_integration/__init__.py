@@ -9,6 +9,7 @@ after execution. The two are complementary.
 
 from agentdesk.git_integration.git import (
     GitError,
+    RepoAnalysis,
     analyze_scope,
     branch_exists,
     changed_files,
@@ -16,14 +17,15 @@ from agentdesk.git_integration.git import (
     current_branch,
     diff_stat,
     filter_task_changes,
-    gate_findings,
     is_clean,
     is_git_repo,
     matches_any,
+    repo_analysis,
 )
 
 __all__ = [
     "GitError",
+    "RepoAnalysis",
     "analyze_scope",
     "branch_exists",
     "changed_files",
@@ -31,8 +33,8 @@ __all__ = [
     "current_branch",
     "diff_stat",
     "filter_task_changes",
-    "gate_findings",
     "is_clean",
     "is_git_repo",
     "matches_any",
+    "repo_analysis",
 ]

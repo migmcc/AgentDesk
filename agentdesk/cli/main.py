@@ -33,7 +33,16 @@ from agentdesk.local_model import (
     get_provider,
     run_assist,
 )
-from agentdesk.models import FileLock, GateOutcome, Model, Project, RiskLevel, Task, TaskState
+from agentdesk.models import (
+    FileLock,
+    Model,
+    Project,
+    RiskLevel,
+    Task,
+    TaskState,
+    TestOutcome,
+    TestResult,
+)
 from agentdesk.planner import PlanError, plan_project
 from agentdesk.prompt_generator import generate_prompt, prompt_relpath
 from agentdesk.quality_gate import run_gate
@@ -638,7 +647,7 @@ def gate_command(
     project: str = typer.Argument(..., help="Project id or name."),
     task_id: str = typer.Argument(..., help="Task id."),
 ) -> None:
-    """Run the basic quality gate for a task and persist the result."""
+    """Run the advanced quality gate for a task and persist the detailed result."""
     with _storage() as store:
         proj = _resolve_project(store, project)
         if proj is None:
@@ -654,27 +663,67 @@ def gate_command(
 
     console.print(f"Quality Gate: {result.outcome.value}\n")
 
-    if result.outcome is GateOutcome.FAIL:
-        console.print("Failures:")
-        for f in result.failures:
-            console.print(f"- {f}")
-        console.print(
-            "\nRecommended action:\nGenerate handover and complete dependencies before accepting "
-            "this task."
+    console.print("Checks:")
+    for c in result.checks:
+        console.print(f"[{c.level.value}] {c.message}")
+
+    console.print("\nFailures:")
+    for f in result.failures:
+        console.print(f"- {f}")
+    if not result.failures:
+        console.print("- none")
+
+    console.print("\nWarnings:")
+    for w in result.warnings:
+        console.print(f"- {w}")
+    if not result.warnings:
+        console.print("- none")
+
+    console.print("\nHuman review reasons:")
+    for r in result.reasons:
+        console.print(f"- {r}")
+    if not result.reasons:
+        console.print("- none")
+
+    console.print(f"\nRecommended action:\n{result.recommended_action}")
+
+
+@app.command("test-result")
+def test_result_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id."),
+    command: Optional[str] = typer.Option(None, "--command", help="The test command that was run."),
+    result: str = typer.Option(..., "--result", help="passed | failed | not-run | unknown."),
+    notes: Optional[str] = typer.Option(None, "--notes", help="Optional notes."),
+) -> None:
+    """Record a test result for a task (Agent Desk never runs tests itself)."""
+    try:
+        outcome = TestOutcome(result.strip().lower())
+    except ValueError:
+        valid = ", ".join(o.value for o in TestOutcome)
+        console.print(f"[red]Invalid result '{result}'. Valid: {valid}.[/red]")
+        raise typer.Exit(code=1)
+
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        task = store.get_task(proj.id, task_id)
+        if task is None:
+            console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
+            raise typer.Exit(code=1)
+        store.save_test_result(
+            proj.id,
+            TestResult(task_id=task.id, project_id=proj.id, command=command,
+                       result=outcome, notes=notes or ""),
         )
-    elif result.outcome is GateOutcome.NEEDS_HUMAN_REVIEW:
-        console.print("Reasons:")
-        for r in result.reasons:
-            console.print(f"- {r}")
-        console.print("\nRecommended action:\nReview manually before marking as done.")
-    else:
-        console.print("Checks:")
-        for label, status in result.checks.items():
-            console.print(f"- {label}: {status}")
-        if result.warnings:
-            console.print("\nWarnings:")
-            for w in result.warnings:
-                console.print(f"- {w}")
+
+    console.print(f"Test result recorded for {task_id}: {outcome.value}")
+    if command:
+        console.print(f"Command: {command}")
+    if notes:
+        console.print(f"Notes: {notes}")
 
 
 @app.command("git-status")
