@@ -22,7 +22,7 @@ vague, expensive models get used for trivial work, context is lost between sessi
 edit the same files, and there is no handover or quality gate before accepting AI output. Agent Desk
 makes that workflow controlled, cheaper, and consistent.
 
-## Status — v0.1 (MVP complete)
+## Status — v0.2.0 (MVP + local Git integration)
 
 The full local-first cycle works:
 

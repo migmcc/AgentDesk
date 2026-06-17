@@ -1,13 +1,26 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 - Git Integration
 
 ### Added
-- Local Git integration (Phase 4): `git-status`, `branch` (branch-per-task, persisted), and `diff`
-  (changed-file detection + allowed/forbidden scope analysis).
-- Quality gate enriched with Git findings: forbidden file change → FAIL; out-of-scope change,
-  no associated branch, or no Git repo → warning. Projects without Git remain fully supported.
-- `docs/git-integration.md`.
+- Local Git repository detection.
+- Task branch creation.
+- Branch association per task.
+- Changed file detection.
+- Diff summary support.
+- Scope analysis against allowed files.
+- Forbidden file violation detection.
+- Git-enriched quality gate.
+- Documentation for Git integration.
+
+### Not included
+- GitHub API.
+- Pull requests.
+- Push.
+- Automatic commits.
+- Automatic merge.
+- CI integration.
+- Model execution.
 
 ## v0.1.0 - Initial MVP
 
