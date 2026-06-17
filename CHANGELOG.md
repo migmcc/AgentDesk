@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Local model advisory assistance (Phase 5): `local-status` and
+  `local-assist <project> <task> --mode <summary|prompt-review|doc-check|handover-draft>`,
+  writing advisory reports to `reports/`.
+- Providers: `fake` (deterministic, for tests) and `openai-compatible` (Ollama via its `/v1`),
+  configured by env vars (`AGENTDESK_LOCAL_PROVIDER/BASE_URL/MODEL/TIMEOUT`).
+- `docs/local-model.md`.
+
+### Notes
+- The local model is advisory only: it never changes code, task state, the official handover, or
+  Git, and is never required for a quality-gate PASS.
+
 ## v0.2.0 - Git Integration
 
 ### Added
