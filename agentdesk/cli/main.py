@@ -21,9 +21,12 @@ from rich.console import Console
 from rich.table import Table
 
 from agentdesk import __version__
+from agentdesk import dependency_manager as dm
 from agentdesk.config import db_path, home_dir
-from agentdesk.models import Project
+from agentdesk.models import Model, Project, RiskLevel, Task, TaskState
 from agentdesk.planner import PlanError, plan_project
+from agentdesk.prompt_generator import generate_prompt, prompt_relpath
+from agentdesk.router import DEFAULT_OVERRIDE_REASON, parse_model, route
 from agentdesk.scaffold import create_project_folder, slugify
 from agentdesk.storage import Storage
 
@@ -37,6 +40,27 @@ console = Console()
 
 def _storage() -> Storage:
     return Storage(db_path())
+
+
+def _resolve_project(store: Storage, identifier: str) -> Optional[Project]:
+    """Resolve a project by id (slug), by slugified name, or by exact (case-insensitive) name."""
+    found = store.get_project(identifier) or store.get_project(slugify(identifier))
+    if found:
+        return found
+    for proj in store.list_projects():
+        if proj.name.lower() == identifier.lower():
+            return proj
+    return None
+
+
+def _blocking_dependencies(store: Storage, project_id: str, task: Task) -> list[str]:
+    """Dependencies of `task` that are not yet accepted (`done`)."""
+    done = dm.done_ids(store.list_tasks(project_id))
+    return [dep for dep in task.dependencies if dep not in done]
+
+
+def _model_label(model: Optional[Model]) -> str:
+    return model.value if model else "—"
 
 
 @app.command()
@@ -187,6 +211,132 @@ def show(project_id: str = typer.Argument(..., help="The project id (slug).")) -
     console.print(f"  Folder:    {project.root_path}")
     console.print(f"  Tasks:     {task_count}")
     console.print(f"  Created:   {project.created_at.isoformat()}")
+
+
+@app.command("route")
+def route_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id, e.g. TASK-003."),
+    override: Optional[str] = typer.Option(
+        None, "--override", help="Manually override the model (codex | claude-code | local-model)."
+    ),
+) -> None:
+    """Show a task's model routing, or apply a manual override (persisted)."""
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        task = store.get_task(proj.id, task_id)
+        if task is None:
+            console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
+            raise typer.Exit(code=1)
+
+        decision = store.get_routing(proj.id, task_id) or route(task)
+
+        if override is None:
+            store.save_routing(proj.id, decision)  # ensure persisted
+            console.print(f"[bold]{task.id}[/bold] — {task.name}\n")
+            console.print(f"Recommended model: {_model_label(decision.recommended_model)}")
+            console.print(f"Alternative model: {_model_label(decision.alternative_model)}")
+            console.print(f"Risk: {decision.risk.value}")
+            console.print(f"Task type: {decision.task_type.value}")
+            if decision.was_overridden:
+                console.print(f"Override model: {_model_label(decision.override_model)}")
+                console.print(f"Override reason: {decision.override_reason}")
+            console.print(f"\nReason:\n{decision.reason}")
+            return
+
+        # --override: change the persisted routing, preserving the original recommendation.
+        try:
+            model = parse_model(override)
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=1)
+
+        original = decision.recommended_model
+        decision.manual_override = True
+        decision.override_model = model
+        decision.override_reason = DEFAULT_OVERRIDE_REASON
+        store.save_routing(proj.id, decision)
+
+        if task.risk is RiskLevel.HIGH and model is Model.LOCAL:
+            console.print(
+                "[yellow]Warning:[/yellow]\nYou are assigning a high-risk task to local-model.\n"
+                "This is not recommended for execution.\n"
+            )
+
+        console.print(f"[bold]{task.id}[/bold] routing updated.\n")
+        console.print(f"Original model: {_model_label(original)}")
+        console.print(f"Override model: {_model_label(model)}")
+        console.print(f"Reason: {decision.override_reason}")
+
+
+@app.command("prompt")
+def prompt_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id, e.g. TASK-003."),
+    model: Optional[str] = typer.Option(
+        None, "--model", help="Generate for a specific model without changing saved routing."
+    ),
+) -> None:
+    """Generate a model-specific prompt file for a task (does not execute any model)."""
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        task = store.get_task(proj.id, task_id)
+        if task is None:
+            console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
+            raise typer.Exit(code=1)
+        if not proj.root_path:
+            console.print(f"[red]Project '{proj.id}' has no root_path; run plan first.[/red]")
+            raise typer.Exit(code=1)
+
+        if model is not None:
+            # Ad-hoc model: affects only this prompt, never the persisted routing.
+            try:
+                effective = parse_model(model)
+            except ValueError as exc:
+                console.print(f"[red]{exc}[/red]")
+                raise typer.Exit(code=1)
+        else:
+            decision = store.get_routing(proj.id, task_id) or route(task)
+            effective = decision.effective_model
+            if effective is None:
+                console.print(
+                    "[red]No model resolved for this task (internal/quality-gate). "
+                    "Use --model to choose one.[/red]"
+                )
+                raise typer.Exit(code=1)
+
+        blocking = _blocking_dependencies(store, proj.id, task)
+
+        if task.state is TaskState.BLOCKED:
+            console.print("[yellow]Warning:[/yellow]")
+            console.print(f"{task.id} is currently blocked.\n")
+            console.print("Blocked by:")
+            for dep in blocking:
+                console.print(f"- {dep}")
+            console.print(
+                "\nThis prompt can be generated for review/preparation, but the task should not "
+                "be executed until dependencies are done.\n"
+            )
+
+        if task.risk is RiskLevel.HIGH and effective is Model.LOCAL:
+            console.print(
+                "[yellow]Warning:[/yellow] generating a local-model prompt for a high-risk task; "
+                "not recommended for execution.\n"
+            )
+
+        path = generate_prompt(
+            task, effective, Path(proj.root_path), project=proj, blocking_deps=blocking
+        )
+
+    console.print("Prompt generated:")
+    console.print(prompt_relpath(effective, task.id))
+    console.print(f"[dim]({path})[/dim]")
 
 
 if __name__ == "__main__":

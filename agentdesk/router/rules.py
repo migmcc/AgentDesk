@@ -88,6 +88,29 @@ ROUTING_RULES: dict[TaskType, Rule] = {
 }
 
 
+DEFAULT_OVERRIDE_REASON = "Manual override by user"
+
+# Accepted spellings for each model on the CLI.
+_MODEL_ALIASES: dict[str, Model] = {
+    "codex": Model.CODEX,
+    "claude-code": Model.CLAUDE_CODE,
+    "claude_code": Model.CLAUDE_CODE,
+    "claude": Model.CLAUDE_CODE,
+    "local": Model.LOCAL,
+    "local-model": Model.LOCAL,
+    "local_model": Model.LOCAL,
+}
+
+
+def parse_model(value: str) -> Model:
+    """Parse a user-supplied model name. Raises ValueError on an invalid model."""
+    key = value.strip().lower()
+    if key not in _MODEL_ALIASES:
+        valid = "codex, claude-code, local-model"
+        raise ValueError(f"Invalid model '{value}'. Valid models: {valid}.")
+    return _MODEL_ALIASES[key]
+
+
 def route(task: Task, override_model: Optional[Model] = None) -> RoutingDecision:
     """Produce a RoutingDecision for a task.
 
@@ -102,6 +125,7 @@ def route(task: Task, override_model: Optional[Model] = None) -> RoutingDecision
 
     return RoutingDecision(
         task_id=task.id,
+        project_id=task.project_id,
         task_type=task.task_type,
         risk=task.risk,
         recommended_model=recommended,
@@ -110,4 +134,5 @@ def route(task: Task, override_model: Optional[Model] = None) -> RoutingDecision
         local_model_allowed=local_model_allowed(task.task_type, task.risk),
         manual_override=override_model is not None,
         override_model=override_model,
+        override_reason=DEFAULT_OVERRIDE_REASON if override_model is not None else None,
     )

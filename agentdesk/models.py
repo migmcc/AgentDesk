@@ -142,7 +142,7 @@ class Task(BaseModel):
 
 
 class RoutingDecision(BaseModel):
-    """Output of the model router for one task."""
+    """Output of the model router for one task (persisted, one current decision per task)."""
 
     task_id: str
     task_type: TaskType
@@ -153,6 +153,10 @@ class RoutingDecision(BaseModel):
     local_model_allowed: bool = False
     manual_override: bool = False
     override_model: Optional[Model] = None
+    override_reason: Optional[str] = None  # default "Manual override by user" when overridden
+    project_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
 
     @property
     def effective_model(self) -> Optional[Model]:
@@ -160,6 +164,10 @@ class RoutingDecision(BaseModel):
         if self.manual_override and self.override_model is not None:
             return self.override_model
         return self.recommended_model
+
+    @property
+    def was_overridden(self) -> bool:
+        return self.manual_override and self.override_model is not None
 
 
 class FileLock(BaseModel):

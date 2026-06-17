@@ -1,16 +1,27 @@
-# Local Model Task
+# Local Model Task — {{ task.id }}
 
-Analyze the following project context.
+This is a low-risk support task ({{ task.task_type.value }}). Stay tightly within the goal below.
 
 ## Goal
 {{ task.objective }}
 
 ## Input files
 {% for f in task.allowed_files %}- {{ f }}
+{% else %}- (none specified)
 {% endfor %}
 
 ## Expected output
-{{ expected_output | default("...") }}
+{{ expected_output | default("A concise result: a summary, review notes, a handover, or a checklist — whichever the goal asks for.") }}
 
 ## Restrictions
-Do not suggest large architecture changes unless there is a clear inconsistency.
+- Do not propose large architecture or design changes.
+- Do not invent context that is not provided.
+- Do not modify code; focus on summary, review, handover, checklist, or prompt preparation.
+{% if blocked %}
+## Dependency warning
+
+This task is currently blocked.
+Do not execute it until the following dependencies are done:
+{% for d in blocking_deps %}- {{ d }}
+{% endfor %}
+{% endif %}

@@ -1,24 +1,48 @@
 # Mission
 
-Implement only {{ task.id }}.
+Implement only {{ task.id }} — {{ task.name }}.
+
+Do not modify files outside the allowed list.
+Do not start related tasks.
+Do not refactor unrelated code.
+
+## Task
+- **Type:** {{ task.task_type.value }}
+- **Risk:** {{ task.risk.value }}
 
 ## Goal
 {{ task.objective }}
 
 ## Allowed files
 {% for f in task.allowed_files %}- {{ f }}
+{% else %}- (none specified)
 {% endfor %}
 
 ## Forbidden files
 {% for f in task.forbidden_files %}- {{ f }}
+{% else %}- (none specified)
+{% endfor %}
+
+## Dependencies
+{% for d in task.dependencies %}- {{ d }}
+{% else %}- (none)
 {% endfor %}
 
 ## Acceptance criteria
 {% for c in task.acceptance_criteria %}- {{ c }}
+{% else %}- (none specified)
 {% endfor %}
+{% if blocked %}
+## Dependency warning
 
+This task is currently blocked.
+Do not execute it until the following dependencies are done:
+{% for d in blocking_deps %}- {{ d }}
+{% endfor %}
+{% endif %}
 ## Before finishing
 - run tests{% if task.test_command %} (`{{ task.test_command }}`){% endif %}
 
-- update handover
+- update the handover for {{ task.id }}
 - do not modify unrelated files
+- do not execute work outside this task

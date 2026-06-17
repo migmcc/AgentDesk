@@ -69,10 +69,13 @@ CREATE TABLE IF NOT EXISTS gate_results (
     data     TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS routing_decisions (
-    id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id  TEXT NOT NULL,
-    data     TEXT NOT NULL
+-- One current routing decision per task (upserted). Includes override state.
+CREATE TABLE IF NOT EXISTS task_routing (
+    project_id  TEXT NOT NULL,
+    task_id     TEXT NOT NULL,
+    data        TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (project_id, task_id)
 );
 """
 
@@ -200,11 +203,7 @@ class Storage:
     # ----------------------------------------------------------------- planning
     def clear_plan(self, project_id: str) -> None:
         """Remove a project's tasks, locks, and routing decisions (used by `plan --force`)."""
-        self._conn.execute(
-            "DELETE FROM routing_decisions WHERE task_id IN "
-            "(SELECT id FROM tasks WHERE project_id = ?)",
-            (project_id,),
-        )
+        self._conn.execute("DELETE FROM task_routing WHERE project_id = ?", (project_id,))
         self._conn.execute("DELETE FROM locks WHERE project_id = ?", (project_id,))
         self._conn.execute("DELETE FROM tasks WHERE project_id = ?", (project_id,))
         self._conn.commit()
@@ -235,10 +234,25 @@ class Storage:
         return result
 
     # -------------------------------------------------------- routing decisions
-    def save_routing_decision(self, decision: RoutingDecision) -> RoutingDecision:
+    def save_routing(self, project_id: str, decision: RoutingDecision) -> RoutingDecision:
+        """Upsert the current routing decision for a task (one row per project+task)."""
+        from datetime import datetime, timezone
+
+        decision.project_id = decision.project_id or project_id
+        decision.updated_at = datetime.now(timezone.utc)
         self._conn.execute(
-            "INSERT INTO routing_decisions (task_id, data) VALUES (?, ?)",
-            (decision.task_id, decision.model_dump_json()),
+            "INSERT INTO task_routing (project_id, task_id, data, updated_at) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(project_id, task_id) DO UPDATE SET "
+            "data = excluded.data, updated_at = excluded.updated_at",
+            (project_id, decision.task_id, decision.model_dump_json(), decision.updated_at.isoformat()),
         )
         self._conn.commit()
         return decision
+
+    def get_routing(self, project_id: str, task_id: str) -> Optional[RoutingDecision]:
+        row = self._conn.execute(
+            "SELECT data FROM task_routing WHERE project_id = ? AND task_id = ?",
+            (project_id, task_id),
+        ).fetchone()
+        return RoutingDecision.model_validate_json(row["data"]) if row else None

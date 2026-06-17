@@ -28,10 +28,16 @@ execution, advanced quality gate, and UI are explicitly deferred.
 - Wired into the CLI in a later run: calling `recompute_states` on task-state changes (the engine
   is ready; the `done`/`start` commands that trigger it land in Run D).
 
-## Run C — Routing & prompts
-- `agentdesk route TASK-xxx` (wire the router into the CLI; record decisions)
-- `agentdesk prompt TASK-xxx --model <m>` → per-model prompt files
-- **Proof:** every task routed with a reason; per-model prompts generated.
+## Run C — Routing & prompts ✅
+- `agentdesk route <project> <task>`: show the routed model + reason; persisted per task
+- `agentdesk route <project> <task> --override <model>`: manual override (keeps the original
+  recommendation; reason "Manual override by user"); high-risk→local warns but is allowed
+- `agentdesk prompt <project> <task>`: render the effective model's prompt to
+  `prompts/<model-dir>/TASK-XXX.md`
+- `agentdesk prompt <project> <task> --model <m>`: ad-hoc prompt for another model **without**
+  changing saved routing
+- Blocked tasks warn on the CLI and get a "Dependency warning" section in the prompt
+- **Proof:** every task routed with a reason; per-model prompts generated; overrides persisted.
 
 ## Run D — Coordination
 - `agentdesk lock` / `start`: per-file reservation + conflict rule table (allow / warn / block)
