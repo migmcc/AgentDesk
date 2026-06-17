@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agent-desk"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first orchestration layer that coordinates work across Codex, Claude Code, and local models."
 readme = "README.md"
 requires-python = ">=3.12"
