@@ -79,6 +79,14 @@ execution, advanced quality gate, and UI are explicitly deferred.
 - Advisory only: never changes code, task state, the official handover, or Git; output is never
   required for a gate PASS. See `docs/local-model.md`.
 
+## Phase 6 — Advanced quality gate ✅
+- `agentdesk gate` now runs six deterministic check groups — scope, state/dependencies, risk, diff
+  (Git), prompt, test, handover — and emits structured `[PASS]/[WARN]/[FAIL]/[REVIEW]` lines plus
+  failures / warnings / human-review reasons and a recommended action.
+- `agentdesk test-result <project> <task> --result <passed|failed|not-run|unknown>` records a test
+  result (Agent Desk never runs tests). `passed` → PASS, `failed` → FAIL, otherwise a warning.
+- Forbidden file changed → FAIL; out-of-scope change → warning; high risk / architecture → review.
+  Projects without Git stay supported. See `docs/advanced-quality-gate.md`.
+
 ## Deferred (post-MVP)
-- **Phase 6 — Advanced quality gate**: test-check, diff-check, scope-check, risk-check.
 - **Phase 7 — UI**: dashboard, task board, model-assignment view, conflict warnings, prompt viewer.

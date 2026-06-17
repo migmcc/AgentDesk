@@ -66,7 +66,8 @@ agentdesk prompt <project> <task> [--model M]       # write a model-specific pro
 agentdesk start <project> <task>                    # check deps + conflicts, lock files, -> doing
 agentdesk review <project> <task>                   # doing -> review (keeps locks)
 agentdesk handover <project> <task> [--summary S]   # generate + persist a handover
-agentdesk gate <project> <task>                     # PASS / PASS_WITH_WARNINGS / FAIL / NEEDS_HUMAN_REVIEW
+agentdesk gate <project> <task>                     # advanced gate: structured checks + outcome
+agentdesk test-result <project> <task> --result R    # record a test result (passed|failed|not-run|unknown)
 agentdesk done <project> <task>                      # complete: release locks, unblock dependents
 agentdesk reject <project> <task>                   # reject: release locks (no unblock)
 
