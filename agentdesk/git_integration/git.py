@@ -80,7 +80,7 @@ def diff_stat(root: str | Path) -> str:
 
 
 # Agent Desk's own coordination artifacts — not task deliverables, so excluded from scope checks.
-IGNORED_CHANGE_PREFIXES = ("prompts/", "handovers/", "tasks/")
+IGNORED_CHANGE_PREFIXES = ("prompts/", "handovers/", "tasks/", "reports/")
 IGNORED_CHANGE_FILES = ("agentdesk.json",)
 
 
