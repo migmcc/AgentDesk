@@ -24,9 +24,11 @@ from agentdesk import __version__
 from agentdesk import dependency_manager as dm
 from agentdesk.conflict_guard import ConflictDecision, check_start
 from agentdesk.config import db_path, home_dir
-from agentdesk.models import FileLock, Model, Project, RiskLevel, Task, TaskState
+from agentdesk.handover import generate_handover
+from agentdesk.models import FileLock, GateOutcome, Model, Project, RiskLevel, Task, TaskState
 from agentdesk.planner import PlanError, plan_project
 from agentdesk.prompt_generator import generate_prompt, prompt_relpath
+from agentdesk.quality_gate import run_gate
 from agentdesk.router import DEFAULT_OVERRIDE_REASON, parse_model, route
 from agentdesk.scaffold import create_project_folder, slugify
 from agentdesk.state_machine import InvalidTransition, apply_transition
@@ -122,7 +124,7 @@ def new(
 
 @app.command()
 def plan(
-    project_id: str = typer.Argument(..., help="The project id (slug) to plan."),
+    project: str = typer.Argument(..., help="The project id or name to plan."),
     force: bool = typer.Option(
         False, "--force", "-f", help="Regenerate, discarding any existing tasks for this project."
     ),
@@ -133,21 +135,21 @@ def plan(
     Idempotent: without --force, an already-planned project is left unchanged.
     """
     with _storage() as store:
-        project = store.get_project(project_id)
-        if project is None:
-            console.print(f"[red]No project with id '[bold]{project_id}[/bold]'.[/red]")
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
             raise typer.Exit(code=1)
 
-        already = store.count_tasks(project_id)
+        already = store.count_tasks(proj.id)
         if already and not force:
             console.print(
-                f"[yellow]Project '{project_id}' already has {already} tasks.[/yellow] "
+                f"[yellow]Project '{proj.id}' already has {already} tasks.[/yellow] "
                 "Use --force to regenerate."
             )
             return
 
         try:
-            tasks = plan_project(store, project, force=force)
+            tasks = plan_project(store, proj, force=force)
         except PlanError as exc:
             console.print(f"[red]{exc}[/red]")
             raise typer.Exit(code=1)
@@ -155,11 +157,11 @@ def plan(
     ready = sum(1 for t in tasks if t.state.value == "ready")
     blocked = sum(1 for t in tasks if t.state.value == "blocked")
     console.print(
-        f"[green]Planned[/green] [bold]{project_id}[/bold]: "
+        f"[green]Planned[/green] [bold]{proj.id}[/bold]: "
         f"{len(tasks)} tasks ({ready} ready, {blocked} blocked)"
     )
 
-    table = Table(title=f"Tasks - {project.name}")
+    table = Table(title=f"Tasks - {proj.name}")
     table.add_column("ID", style="bold")
     table.add_column("Title")
     table.add_column("Type")
@@ -178,7 +180,7 @@ def plan(
             ", ".join(t.dependencies) or "-",
         )
     console.print(table)
-    console.print(f"Docs + task files written under: {project.root_path}")
+    console.print(f"Docs + task files written under: {proj.root_path}")
 
 
 @app.command()
@@ -491,6 +493,19 @@ def _terminal_command(project: str, task_id: str, target: TaskState) -> None:
             console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
             raise typer.Exit(code=1)
 
+        # Guide the flow (warn, do not block) when accepting a task.
+        if target is TaskState.DONE:
+            if store.get_handover(proj.id, task.id) is None:
+                console.print(
+                    f"[yellow]Warning:[/yellow]\nNo handover found for {task.id}.\nRun:\n"
+                    f'agentdesk handover "{project}" {task.id}\n'
+                )
+            if store.get_gate_result(proj.id, task.id) is None:
+                console.print(
+                    f"[yellow]Warning:[/yellow]\nNo quality gate result found for {task.id}.\nRun:\n"
+                    f'agentdesk gate "{project}" {task.id}\n'
+                )
+
         try:
             apply_transition(task, target)
         except InvalidTransition as exc:
@@ -575,6 +590,81 @@ def reject_command(
 ) -> None:
     """Reject a task (from doing/review): release locks; does not unblock dependents."""
     _terminal_command(project, task_id, TaskState.REJECTED)
+
+
+@app.command("handover")
+def handover_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id."),
+    summary: Optional[str] = typer.Option(
+        None, "--summary", "-s", help="Optional manual summary to record in the handover."
+    ),
+) -> None:
+    """Generate and persist a handover document for a task."""
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        task = store.get_task(proj.id, task_id)
+        if task is None:
+            console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
+            raise typer.Exit(code=1)
+        if not proj.root_path:
+            console.print(f"[red]Project '{proj.id}' has no root_path; run plan first.[/red]")
+            raise typer.Exit(code=1)
+
+        model = _effective_model(store, proj.id, task)
+        _, path = generate_handover(store, proj, task, model, summary=summary)
+        rel = f"handovers/{task.id}.md"
+
+    console.print("Handover generated:")
+    console.print(rel)
+    console.print(f"[dim]({path})[/dim]")
+
+
+@app.command("gate")
+def gate_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id."),
+) -> None:
+    """Run the basic quality gate for a task and persist the result."""
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        task = store.get_task(proj.id, task_id)
+        if task is None:
+            console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
+            raise typer.Exit(code=1)
+
+        result = run_gate(store, proj, task)
+        store.save_gate_result(proj.id, result)
+
+    console.print(f"Quality Gate: {result.outcome.value}\n")
+
+    if result.outcome is GateOutcome.FAIL:
+        console.print("Failures:")
+        for f in result.failures:
+            console.print(f"- {f}")
+        console.print(
+            "\nRecommended action:\nGenerate handover and complete dependencies before accepting "
+            "this task."
+        )
+    elif result.outcome is GateOutcome.NEEDS_HUMAN_REVIEW:
+        console.print("Reasons:")
+        for r in result.reasons:
+            console.print(f"- {r}")
+        console.print("\nRecommended action:\nReview manually before marking as done.")
+    else:
+        console.print("Checks:")
+        for label, status in result.checks.items():
+            console.print(f"- {label}: {status}")
+        if result.warnings:
+            console.print("\nWarnings:")
+            for w in result.warnings:
+                console.print(f"- {w}")
 
 
 if __name__ == "__main__":

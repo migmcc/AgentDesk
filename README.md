@@ -9,22 +9,24 @@
 
 ## Status
 
-**v0.1 — Run D (Coordination).** Foundation + planning + routing/prompts, plus the coordination
-layer: start tasks (with dependency + file-conflict checks), track state, lock files, and complete
-tasks (releasing locks and unblocking dependents). Handover and quality gate land next
-(see `docs/roadmap.md`).
+**v0.1 — MVP complete (Run E).** The full local-first cycle works:
+`new → plan → route → prompt → start → handover → gate → done → unlock next task`. All 13 MVP
+acceptance criteria are covered (see `docs/mvp-demo.md`). Model execution stays manual; Git, UI,
+and advanced gate are future phases (see `docs/roadmap.md`).
 
 What works today:
 
 - `agentdesk new "<idea>"` - create a project (folder scaffold + `agentdesk.json` + persisted state)
-- `agentdesk plan <project-id>` - generate base docs + >=10 routed tasks with dependencies/states
+- `agentdesk plan <project>` - generate base docs + >=10 routed tasks with dependencies/states
 - `agentdesk route <project> <task> [--override <model>]` - show or override a task's model routing
 - `agentdesk prompt <project> <task> [--model <model>]` - write a model-specific prompt file
 - `agentdesk status <project>` - state counts, in-progress, active locks, next ready, blocked tasks
 - `agentdesk start <project> <task>` - check deps + conflicts, lock files, move to `doing`
+- `agentdesk handover <project> <task> [--summary "..."]` - generate + persist a handover
+- `agentdesk gate <project> <task>` - PASS / PASS_WITH_WARNINGS / FAIL / NEEDS_HUMAN_REVIEW
 - `agentdesk done|review|reject <project> <task>` - complete / send to review / reject a task
 - `agentdesk projects` - list projects (proves state persists across restarts)
-- `agentdesk show <project-id>` - show project details
+- `agentdesk show <project>` - show project details
 - `agentdesk version`
 
 ## Key decisions (MVP)
@@ -74,8 +76,8 @@ agentdesk/
   conflict_guard/      # file-collision checks (allow / warn / block)
   state_machine/       # allowed task state transitions + validation
   prompt_generator/    # per-model prompts
-  handover/            # handover.md generation           (later run)
-  quality_gate/        # PASS/WARN/FAIL/NEEDS_HUMAN_REVIEW (later run)
+  handover/            # handover.md generation
+  quality_gate/        # PASS/WARN/FAIL/NEEDS_HUMAN_REVIEW
   cli/                 # Typer CLI
   templating.py        # shared Jinja2 environment
 templates/             # Jinja2 templates (docs + prompts + handover)

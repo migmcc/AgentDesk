@@ -11,8 +11,13 @@ itself prevents two tasks from reserving the same file.
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 from agentdesk.models import (
     FileLock,
@@ -58,15 +63,22 @@ CREATE TABLE IF NOT EXISTS locks (
     UNIQUE (project_id, file_path)
 );
 
+-- One current handover per task (upserted).
 CREATE TABLE IF NOT EXISTS handovers (
-    task_id  TEXT PRIMARY KEY,
-    data     TEXT NOT NULL
+    project_id  TEXT NOT NULL,
+    task_id     TEXT NOT NULL,
+    data        TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (project_id, task_id)
 );
 
+-- One current quality-gate result per task (upserted).
 CREATE TABLE IF NOT EXISTS gate_results (
-    id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id  TEXT NOT NULL,
-    data     TEXT NOT NULL
+    project_id  TEXT NOT NULL,
+    task_id     TEXT NOT NULL,
+    data        TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (project_id, task_id)
 );
 
 -- One current routing decision per task (upserted). Includes override state.
@@ -202,36 +214,52 @@ class Storage:
 
     # ----------------------------------------------------------------- planning
     def clear_plan(self, project_id: str) -> None:
-        """Remove a project's tasks, locks, and routing decisions (used by `plan --force`)."""
-        self._conn.execute("DELETE FROM task_routing WHERE project_id = ?", (project_id,))
-        self._conn.execute("DELETE FROM locks WHERE project_id = ?", (project_id,))
-        self._conn.execute("DELETE FROM tasks WHERE project_id = ?", (project_id,))
+        """Remove a project's tasks, locks, routing, handovers, and gate results."""
+        for table in ("task_routing", "handovers", "gate_results", "locks", "tasks"):
+            self._conn.execute(f"DELETE FROM {table} WHERE project_id = ?", (project_id,))
         self._conn.commit()
 
     # ----------------------------------------------------------------- handovers
-    def save_handover(self, handover: Handover) -> Handover:
+    def save_handover(self, project_id: str, handover: Handover) -> Handover:
+        """Upsert the current handover for a task (one row per project+task)."""
+        handover.project_id = handover.project_id or project_id
+        handover.updated_at = datetime.now(timezone.utc)
         self._conn.execute(
-            "INSERT INTO handovers (task_id, data) VALUES (?, ?) "
-            "ON CONFLICT(task_id) DO UPDATE SET data = excluded.data",
-            (handover.task_id, handover.model_dump_json()),
+            "INSERT INTO handovers (project_id, task_id, data, updated_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(project_id, task_id) DO UPDATE SET "
+            "data = excluded.data, updated_at = excluded.updated_at",
+            (project_id, handover.task_id, handover.model_dump_json(), handover.updated_at.isoformat()),
         )
         self._conn.commit()
         return handover
 
-    def get_handover(self, task_id: str) -> Optional[Handover]:
+    def get_handover(self, project_id: str, task_id: str) -> Optional[Handover]:
         row = self._conn.execute(
-            "SELECT data FROM handovers WHERE task_id = ?", (task_id,)
+            "SELECT data FROM handovers WHERE project_id = ? AND task_id = ?",
+            (project_id, task_id),
         ).fetchone()
         return Handover.model_validate_json(row["data"]) if row else None
 
     # -------------------------------------------------------------- gate results
-    def save_gate_result(self, result: GateResult) -> GateResult:
+    def save_gate_result(self, project_id: str, result: GateResult) -> GateResult:
+        """Upsert the current quality-gate result for a task (one row per project+task)."""
+        result.project_id = result.project_id or project_id
+        result.updated_at = datetime.now(timezone.utc)
         self._conn.execute(
-            "INSERT INTO gate_results (task_id, data) VALUES (?, ?)",
-            (result.task_id, result.model_dump_json()),
+            "INSERT INTO gate_results (project_id, task_id, data, updated_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(project_id, task_id) DO UPDATE SET "
+            "data = excluded.data, updated_at = excluded.updated_at",
+            (project_id, result.task_id, result.model_dump_json(), result.updated_at.isoformat()),
         )
         self._conn.commit()
         return result
+
+    def get_gate_result(self, project_id: str, task_id: str) -> Optional[GateResult]:
+        row = self._conn.execute(
+            "SELECT data FROM gate_results WHERE project_id = ? AND task_id = ?",
+            (project_id, task_id),
+        ).fetchone()
+        return GateResult.model_validate_json(row["data"]) if row else None
 
     # -------------------------------------------------------- routing decisions
     def save_routing(self, project_id: str, decision: RoutingDecision) -> RoutingDecision:

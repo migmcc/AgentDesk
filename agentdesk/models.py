@@ -184,6 +184,7 @@ class Handover(BaseModel):
     """Continuity document produced at the end of a task."""
 
     task_id: str
+    project_id: Optional[str] = None
     summary: str = ""
     what_changed: str = ""
     files_changed: list[str] = Field(default_factory=list)
@@ -192,14 +193,21 @@ class Handover(BaseModel):
     decisions_made: str = ""
     next_recommended_task: Optional[str] = None
     risks_remaining: str = ""
+    handover_path: Optional[str] = None
     created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
 
 
 class GateResult(BaseModel):
     """Result of running the quality gate on a task."""
 
     task_id: str
+    project_id: Optional[str] = None
     outcome: GateOutcome
-    checks: dict[str, bool] = Field(default_factory=dict)
+    checks: dict[str, str] = Field(default_factory=dict)   # label -> status text
+    warnings: list[str] = Field(default_factory=list)
+    failures: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)       # for NEEDS_HUMAN_REVIEW
     notes: str = ""
     created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
