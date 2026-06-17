@@ -14,7 +14,7 @@ official handover, project files, or Git. Its output is advisory and is written 
 AGENTDESK_LOCAL_PROVIDER=openai-compatible   # fake | openai-compatible | ollama
 AGENTDESK_LOCAL_BASE_URL=http://localhost:11434/v1
 AGENTDESK_LOCAL_MODEL=<your-model-name>      # not hard-coded
-AGENTDESK_LOCAL_TIMEOUT=60
+AGENTDESK_LOCAL_TIMEOUT=120   # default 120s; raise it for large/cold local models
 ```
 
 - `fake` — deterministic, offline; used by the test suite and for trying the flow without a model.
