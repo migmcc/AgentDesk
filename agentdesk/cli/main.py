@@ -22,6 +22,7 @@ from rich.table import Table
 
 from agentdesk import __version__
 from agentdesk import dependency_manager as dm
+from agentdesk import git_integration as git
 from agentdesk.conflict_guard import ConflictDecision, check_start
 from agentdesk.config import db_path, home_dir
 from agentdesk.handover import generate_handover
@@ -474,6 +475,8 @@ def start_command(
     else:
         console.print("- (none)")
     console.print("")
+    if task.branch_name:
+        console.print(f"Branch:\n{task.branch_name}\n")
     if prompt_exists:
         console.print(f"Prompt:\n{rel}")
     else:
@@ -665,6 +668,138 @@ def gate_command(
             console.print("\nWarnings:")
             for w in result.warnings:
                 console.print(f"- {w}")
+
+
+@app.command("git-status")
+def git_status_command(project: str = typer.Argument(..., help="Project id or name.")) -> None:
+    """Show the project's local Git status (never crashes on non-Git projects)."""
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+
+    console.print(f"Git status for project: {proj.name}\n")
+    if not git.is_git_repo(proj.root_path):
+        console.print("No Git repository detected for this project.")
+        return
+
+    try:
+        branch = git.current_branch(proj.root_path)
+        clean = git.is_clean(proj.root_path)
+        changed = git.changed_files(proj.root_path)
+    except git.GitError as exc:
+        console.print(f"[red]Git error: {exc}[/red]")
+        raise typer.Exit(code=1)
+
+    console.print("Repository: detected")
+    console.print(f"Current branch: {branch or '(detached)'}")
+    console.print(f"Clean: {'yes' if clean else 'no'}\n")
+    console.print("Changed files:")
+    if changed:
+        for f in changed:
+            console.print(f"- {f}")
+    else:
+        console.print("- none")
+
+
+@app.command("branch")
+def branch_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id."),
+) -> None:
+    """Create (or reuse) and check out a Git branch for a task: agent/TASK-XXX-<slug>."""
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        task = store.get_task(proj.id, task_id)
+        if task is None:
+            console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
+            raise typer.Exit(code=1)
+        if not git.is_git_repo(proj.root_path):
+            console.print("No Git repository detected for this project.")
+            raise typer.Exit(code=1)
+
+        try:
+            if not git.is_clean(proj.root_path):
+                console.print(
+                    "[yellow]Warning:[/yellow] working tree has uncommitted changes; "
+                    "they will carry over to the new branch.\n"
+                )
+            name = f"agent/{task.id}-{slugify(task.name)}"
+            created = git.create_branch(proj.root_path, name)
+        except git.GitError as exc:
+            console.print(f"[red]Git error: {exc}[/red]")
+            raise typer.Exit(code=1)
+
+        task.branch_name = name
+        store.update_task(task)
+
+    if created:
+        console.print(f"Branch created and checked out:\n{name}\n")
+    else:
+        console.print(f"Branch already existed; checked out:\n{name}\n")
+    console.print(f"Task updated:\n{task.id} -> branch_name: {name}")
+
+
+@app.command("diff")
+def diff_command(
+    project: str = typer.Argument(..., help="Project id or name."),
+    task_id: str = typer.Argument(..., help="Task id."),
+) -> None:
+    """Summarize changed files for a task and check them against allowed/forbidden lists."""
+    with _storage() as store:
+        proj = _resolve_project(store, project)
+        if proj is None:
+            console.print(f"[red]No project matching '[bold]{project}[/bold]'.[/red]")
+            raise typer.Exit(code=1)
+        task = store.get_task(proj.id, task_id)
+        if task is None:
+            console.print(f"[red]No task '[bold]{task_id}[/bold]' in project '{proj.id}'.[/red]")
+            raise typer.Exit(code=1)
+        if not git.is_git_repo(proj.root_path):
+            console.print("No Git repository detected for this project.")
+            raise typer.Exit(code=1)
+
+        try:
+            changed = git.filter_task_changes(git.changed_files(proj.root_path))
+            out_of_scope, forbidden_v = git.analyze_scope(
+                changed, task.allowed_files, task.forbidden_files
+            )
+            # Persist the observed changes onto the task (Git-ready fields become functional).
+            task.changed_files = changed
+            task.diff_summary = git.diff_stat(proj.root_path)
+        except git.GitError as exc:
+            console.print(f"[red]Git error: {exc}[/red]")
+            raise typer.Exit(code=1)
+        store.update_task(task)
+
+    console.print(f"Diff summary for {task.id}\n")
+    console.print(f"Branch: {task.branch_name or git.current_branch(proj.root_path) or '(unknown)'}\n")
+    console.print("Changed files:")
+    for f in changed or []:
+        console.print(f"- {f}")
+    if not changed:
+        console.print("- none")
+    console.print("\nAllowed files:")
+    for f in task.allowed_files or []:
+        console.print(f"- {f}")
+    if not task.allowed_files:
+        console.print("- (none defined)")
+
+    console.print("\nForbidden violations:")
+    if forbidden_v:
+        for f in forbidden_v:
+            console.print(f"- {f} is listed as forbidden but was changed.")
+    else:
+        console.print("- none")
+
+    if out_of_scope:
+        console.print("\nScope warnings:")
+        for f in out_of_scope:
+            console.print(f"- {f} is changed but not listed in allowed_files.")
 
 
 if __name__ == "__main__":

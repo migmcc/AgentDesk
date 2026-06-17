@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Local Git integration (Phase 4): `git-status`, `branch` (branch-per-task, persisted), and `diff`
+  (changed-file detection + allowed/forbidden scope analysis).
+- Quality gate enriched with Git findings: forbidden file change → FAIL; out-of-scope change,
+  no associated branch, or no Git repo → warning. Projects without Git remain fully supported.
+- `docs/git-integration.md`.
+
 ## v0.1.0 - Initial MVP
 
 ### Added
