@@ -1,0 +1,12 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "calc"
+version = "0.1.0"
+description = "Arithmetic helpers with an intentional bug (Agent Desk validation fixture)."
+requires-python = ">=3.12"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/calc"]
