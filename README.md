@@ -61,6 +61,9 @@ that into a controlled, repeatable workflow.
   (local only; no remotes/push/PRs).
 - **Advisory local-model assist** — optional summary / prompt-review / doc-check / handover-draft
   reports; never changes code or state.
+- **Project validation command** — `validate-project <path>` runs a deterministic, read-only health
+  check (Git state, README, optional test command, conflicts/handover for registered projects) with
+  a `PASS / WARN / FAIL` summary and `--json` output.
 
 ## Quickstart
 
@@ -100,6 +103,9 @@ agentdesk gate <project> <task>                       # advanced gate: structure
 agentdesk test-result <project> <task> --result R     # record a test result (passed|failed|not-run|unknown)
 agentdesk done <project> <task>                       # complete: release locks, unblock dependents
 agentdesk reject <project> <task>                     # reject: release locks (no unblock)
+
+# Validate any local project folder (no registration required)
+agentdesk validate-project <path> [--test-command CMD] [--json]   # deterministic PASS/WARN/FAIL report
 
 # Local Git integration (optional; see docs/git-integration.md)
 agentdesk git-status <project>                        # repo / branch / clean / changed files

@@ -106,7 +106,28 @@ agentdesk status "Demo Agent Desk"
 
 `<project>` accepts the slug (e.g. `demo-agent-desk`) or the name (`"Demo Agent Desk"`).
 
-## 6. Optional: local Git features
+## 6. Validate any local project folder
+
+`validate-project` runs a deterministic, read-only health check on **any** folder — it does not need
+to be an Agent Desk project. It reports Git state, README presence, an optional test command result,
+and (for registered projects) file-lock conflicts and handover status.
+
+```bash
+# Validate the current folder
+agentdesk validate-project .
+
+# Also run a test command inside the project (the only thing that executes)
+agentdesk validate-project . --test-command "pytest"
+
+# Machine-readable output
+agentdesk validate-project . --json
+```
+
+The summary is `PASS`, `PASS_WITH_WARNINGS`, or `FAIL`. The command exits non-zero **only** on a
+`FAIL` (e.g. the test command failed), which makes it usable in scripts and pre-commit checks. A
+missing README or a non-Git folder is a warning, not a failure.
+
+## 7. Optional: local Git features
 
 If your project folder is a Git repository (the folder must be the repo root), you can use the local
 Git helpers. They are read/inspect-only with respect to the network — no remotes, push, or PRs.
@@ -117,7 +138,7 @@ agentdesk branch "Demo Agent Desk" TASK-001     # create+checkout agent/TASK-001
 agentdesk diff "Demo Agent Desk" TASK-001       # changed files vs allowed/forbidden scope
 ```
 
-## 7. Optional: advisory local-model assist
+## 8. Optional: advisory local-model assist
 
 Configure a local model (e.g. Ollama via its OpenAI-compatible `/v1` endpoint) to get advisory
 reports. This never edits code or task state.
