@@ -1,20 +1,23 @@
 # Changelog
 
-## v0.4.2 (Unreleased) - Validate-Project Command
+## v0.4.2 - Real Project Validate Command
 
 ### Added
-- `agentdesk validate-project <path>` command: deterministic, read-only validation of a local
-  project folder.
-  - Reports Git state (repo / branch / clean or dirty), README presence, an optional
-    `--test-command` result, and — for registered Agent Desk projects — active file-lock conflicts
-    and handover presence.
-  - `--json` output for machine consumption.
-  - Final `PASS / PASS_WITH_WARNINGS / FAIL` summary; exits non-zero only on FAIL.
-- `agentdesk/project_validator/` module — a thin composition layer that reuses `git_integration`,
-  the quality gate's `GateOutcome` vocabulary, and `storage` (locks/handovers). No engine module
-  was redesigned.
-- Tests for the command (clean project, missing path, missing README, non-git folder, passing and
-  failing test commands, JSON output, registered-project locks/handover, and CLI help).
+- New `agentdesk validate-project <path>` command: deterministic, read-only validation of a local
+  project folder (it does not need to be a registered Agent Desk project).
+- Git state inspection: repository detection, current branch, and clean / dirty working tree.
+- README detection at the project root.
+- Optional `--test-command` execution inside the project (the only thing that ever runs).
+- `PASS / PASS_WITH_WARNINGS / FAIL` summary; exits non-zero only on `FAIL`.
+- `--json` output mode for machine consumption.
+- Registered-project conflict and handover indicators (active file locks and missing handovers for
+  in-progress tasks), read from `storage`.
+- New `agentdesk/project_validator/` module — a thin composition layer that reuses `git_integration`,
+  the quality gate's `GateOutcome` vocabulary, and `storage`. No engine module was redesigned.
+- 11 new tests covering the command (clean project, missing path, file-not-directory, missing README,
+  non-git folder, passing and failing test commands, JSON output and JSON failure exit code,
+  registered-project locks/handover, and CLI help).
+- Documentation updates: README, `docs/quickstart.md`, `examples/README.md`, and this changelog.
 
 ### Notes
 - The command never calls an AI model and adds no external dependencies. The only thing it executes
