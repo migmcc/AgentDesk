@@ -1,0 +1,12 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wordcount"
+version = "0.1.0"
+description = "Word-counting helpers. Intentionally ships without a README (Agent Desk fixture)."
+requires-python = ">=3.12"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wordcount"]

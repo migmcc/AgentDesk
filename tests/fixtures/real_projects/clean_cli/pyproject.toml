@@ -1,0 +1,12 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "todo-cli"
+version = "0.1.0"
+description = "A tiny local-first to-do list CLI (Agent Desk validation fixture)."
+requires-python = ">=3.12"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/todo_cli"]
