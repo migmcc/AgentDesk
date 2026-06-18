@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.4.2 (Unreleased) - Validate-Project Command
+
+### Added
+- `agentdesk validate-project <path>` command: deterministic, read-only validation of a local
+  project folder.
+  - Reports Git state (repo / branch / clean or dirty), README presence, an optional
+    `--test-command` result, and — for registered Agent Desk projects — active file-lock conflicts
+    and handover presence.
+  - `--json` output for machine consumption.
+  - Final `PASS / PASS_WITH_WARNINGS / FAIL` summary; exits non-zero only on FAIL.
+- `agentdesk/project_validator/` module — a thin composition layer that reuses `git_integration`,
+  the quality gate's `GateOutcome` vocabulary, and `storage` (locks/handovers). No engine module
+  was redesigned.
+- Tests for the command (clean project, missing path, missing README, non-git folder, passing and
+  failing test commands, JSON output, registered-project locks/handover, and CLI help).
+
+### Notes
+- The command never calls an AI model and adds no external dependencies. The only thing it executes
+  is the test command you explicitly pass via `--test-command`.
+
 ## v0.4.1 - Real Project Validation
 
 ### Added

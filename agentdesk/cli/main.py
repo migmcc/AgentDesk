@@ -13,6 +13,7 @@ Prompt generation, conflict guard, handover, and the quality gate arrive in late
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -44,6 +45,7 @@ from agentdesk.models import (
     TestResult,
 )
 from agentdesk.planner import PlanError, plan_project
+from agentdesk.project_validator import validate_project
 from agentdesk.prompt_generator import generate_prompt, prompt_relpath
 from agentdesk.quality_gate import run_gate
 from agentdesk.router import DEFAULT_OVERRIDE_REASON, parse_model, route
@@ -686,6 +688,64 @@ def gate_command(
         console.print("- none")
 
     console.print(f"\nRecommended action:\n{result.recommended_action}")
+
+
+_VALIDATION_TAGS = {
+    "PASS": "[green]PASS[/green]",
+    "WARN": "[yellow]WARN[/yellow]",
+    "FAIL": "[red]FAIL[/red]",
+    "SKIP": "[dim]SKIP[/dim]",
+}
+_OUTCOME_STYLE = {
+    "PASS": "green",
+    "PASS_WITH_WARNINGS": "yellow",
+    "FAIL": "red",
+}
+
+
+def _print_validation_report(report) -> None:
+    console.print(f"Project validation: [bold]{report.path}[/bold]\n")
+    console.print("Checks:")
+    for c in report.checks:
+        tag = _VALIDATION_TAGS.get(c.level, c.level)
+        console.print(f"[{tag}] {c.name}: {c.message}")
+    style = _OUTCOME_STYLE.get(report.outcome.value, "white")
+    console.print(f"\nResult: [{style}]{report.outcome.value}[/{style}]")
+
+
+@app.command("validate-project")
+def validate_project_command(
+    path: Path = typer.Argument(..., help="Path to the local project folder to validate."),
+    test_command: Optional[str] = typer.Option(
+        None, "--test-command", help='Optional test command to run in the project (e.g. "pytest").'
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit the report as JSON instead of text."),
+) -> None:
+    """Run a deterministic validation of a local project folder.
+
+    Reports Git state, README presence, an optional test command, and (for registered projects)
+    file-lock conflicts and handover presence, then a PASS / PASS_WITH_WARNINGS / FAIL summary.
+    Exits non-zero only on FAIL.
+    """
+    root = path.expanduser()
+    if not root.exists():
+        console.print(f"[red]Path does not exist: {root}[/red]")
+        raise typer.Exit(code=1)
+    if not root.is_dir():
+        console.print(f"[red]Not a directory: {root}[/red]")
+        raise typer.Exit(code=1)
+
+    with _storage() as store:
+        report = validate_project(root, test_command=test_command, store=store)
+
+    if json_output:
+        # Plain JSON (no Rich markup) so the output is reliably machine-parseable.
+        typer.echo(json.dumps(report.to_dict(), indent=2))
+    else:
+        _print_validation_report(report)
+
+    if report.failed:
+        raise typer.Exit(code=1)
 
 
 @app.command("test-result")
