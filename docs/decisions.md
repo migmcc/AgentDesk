@@ -1,6 +1,6 @@
 # Agent Desk — Decisions
 
-Locked decisions carried over from SkillLab incubation (approved 2026-06-17).
+Locked decisions for Agent Desk (approved 2026-06-17).
 
 ## D1 — Routing: fixed rules + manual override (no scoring in MVP)
 Simpler, predictable, debuggable. The system recommends a model; the user can override manually.
@@ -41,8 +41,8 @@ MVP uses SQLite state + per-file locking only. The Task schema is **Git-ready** 
 that need not function yet: `branch_name`, `base_branch`, `commit_hash`, `changed_files`, `pr_url`,
 `diff_summary`.
 
-## D4 — Standalone repo outside SkillLab
-Location: `D:\Trabalho\agent-desk`. SkillLab is only for incubation/validation/planning.
+## D4 — Standalone repository
+Standalone repository, developed independently from other incubation and planning work.
 
 ## D5 — License: MIT
 MIT is the project's definitive license (confirmed at the v0.1.0 release). See `LICENSE`.
