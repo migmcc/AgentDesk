@@ -65,7 +65,33 @@ agentdesk start "Review Assistant for restaurants" TASK-004   # -> "File conflic
 
 What you learn: file locks (enforced by the database) stop two tasks from touching the same files.
 
-## Example 5 — How the validation fixtures map to real projects
+## Example 5 — Validate a local project folder
+
+`validate-project` works on any folder, registered or not. It is the quickest way to get a
+deterministic health check.
+
+```bash
+# A clean Git repo with a README and passing tests -> PASS
+agentdesk validate-project ./tests/fixtures/real_projects/clean_cli
+
+# Run the project's own tests as part of validation (the only thing that executes)
+agentdesk validate-project ./tests/fixtures/real_projects/clean_cli --test-command "pytest tests -q"
+
+# The broken-tests fixture fails its test command -> FAIL, non-zero exit
+agentdesk validate-project ./tests/fixtures/real_projects/broken_tests --test-command "pytest tests -q"
+
+# The missing-readme fixture -> WARN on README, overall PASS_WITH_WARNINGS
+agentdesk validate-project ./tests/fixtures/real_projects/missing_readme
+
+# Machine-readable
+agentdesk validate-project ./tests/fixtures/real_projects/clean_cli --json
+```
+
+What you learn: `validate-project` exposes existing capabilities (local Git inspection, the gate's
+PASS/WARN/FAIL vocabulary, and — for registered projects — locks/handovers) over an arbitrary
+directory, and exits non-zero only on a `FAIL`.
+
+## Example 6 — How the validation fixtures map to real projects
 
 The v0.4.1 validation layer exercises the engine against real, runnable projects. You can browse and
 even run those fixtures directly:
