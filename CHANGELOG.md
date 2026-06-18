@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.4.1 - Real Project Validation
+
+### Added
+- Real project validation layer.
+- `docs/validation/real-project-validation-v0.4.1.md`.
+- Realistic, runnable sample project fixtures under `tests/fixtures/real_projects/`.
+- Integration tests exercising the existing engine against realistic projects:
+  - Clean Python CLI project.
+  - Broken tests project.
+  - Missing README project.
+  - Dirty Git state / out-of-scope edits.
+  - Conflict guard blocking.
+  - Handover output.
+- Pytest fixture exclusion via `norecursedirs = ["fixtures"]` so the sample projects
+  (some intentionally broken) are not collected by Agent Desk's own suite.
+
+### Notes
+- Validation only: it reuses planner, router, quality_gate, conflict_guard, handover, and
+  git_integration. No production `agentdesk/` modules were changed.
+
+### Not included
+- Release tag.
+- Automatic test execution by Agent Desk.
+
 ## v0.4.0 - Advanced Quality Gate
 
 ### Added
