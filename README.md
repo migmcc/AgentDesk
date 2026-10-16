@@ -1,5 +1,25 @@
 # Agent Desk
 
+### Coordinate Codex, Claude Code and local models — without losing track of tasks or handovers.
+
+**Agent Desk** is a local-first CLI that turns an idea into a structured plan, routes work to model-specific prompts, reserves files to avoid conflicts and checks evidence before tasks are accepted.
+
+**It coordinates manual AI-assisted work; it never runs those models for you.**
+
+**[Quick start](#quickstart)** · **[See the workflow](#end-to-end-example)** · **[Quality gate](#the-quality-gate)** · **[Limits](#current-limitations)**
+
+```bash
+agentdesk new "Demo Agent Desk"
+agentdesk plan "Demo Agent Desk"
+agentdesk status "Demo Agent Desk"
+agentdesk route "Demo Agent Desk" TASK-001
+agentdesk prompt "Demo Agent Desk" TASK-001
+```
+
+> These are documented CLI steps, not a recorded execution. Requires Python 3.12+ and [local installation](#quickstart); prompts are intended for manual use in the chosen coding assistant.
+
+---
+
 > A local-first CLI that turns a project idea into an executable, routed plan and coordinates the
 > work across **Codex**, **Claude Code**, and **local models** — with model-specific prompts,
 > file-conflict control, handovers, and a deterministic quality gate.
